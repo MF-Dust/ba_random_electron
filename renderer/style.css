@@ -1,0 +1,78 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+.floating-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-button {
+  position: relative;
+  border: 0;
+  border-radius: 16px;
+  cursor: pointer;
+  touch-action: none;
+  padding: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #66CCFFF0, rgba(64, 145, 240, 0.95));
+  box-shadow: 0 10px 24px rgba(30, 70, 130, 0.24);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.floating-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(30, 70, 130, 0.28);
+}
+
+.floating-button:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.floating-button.is-dragging,
+.floating-button.is-dragging:hover,
+.floating-button.is-dragging:active {
+  transform: none;
+  transition: none;
+}
+
+.floating-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.floating-button-label {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
+  pointer-events: none;
+}

@@ -1,0 +1,23 @@
+# 悬浮按钮配置
+floatingButton:
+  # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100
+  sizePercent: 100
+  # 透明度百分比，范围 0-100（0=完全不透明，100=完全透明），默认 20
+  transparencyPercent: 20
+  # 是否置顶（true/false），默认 true
+  alwaysOnTop: true
+  # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
+  position:
+    x: 1134
+    y: 630
+
+# 人数选择窗口配置
+pickCountDialog:
+  # 是否默认播放喜庆点名音乐（true/false），默认 false
+  defaultPlayMusic: false
+  # 背景变暗程度，范围 0-100（100 接近全黑），默认 50
+  backgroundDarknessPercent: 50
+  # 背景模糊程度，范围 0-100，默认 10
+  backgroundBlurPercent: 10
+  # 人数默认值，范围 1-10 的整数，默认 1
+  defaultCount: 1
