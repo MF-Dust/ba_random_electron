@@ -13,6 +13,31 @@ const FloatingButton = {
   emits: ['click'],
   setup(props, { emit }) {
     const { computed, ref } = Vue;
+    const CLICK_SOUND_GAIN = 1;
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const clickBufferPromise = fetch('../sound/button_click.wav')
+      .then((response) => response.arrayBuffer())
+      .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer.slice(0)));
+
+    function playClickSound() {
+      clickBufferPromise
+        .then(async (buffer) => {
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+          }
+
+          const source = audioContext.createBufferSource();
+          source.buffer = buffer;
+
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = CLICK_SOUND_GAIN;
+
+          source.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          source.start(0);
+        })
+        .catch(() => {});
+    }
 
     const styleOpacity = computed(() => {
       return Math.max(0, Math.min(1, 1 - props.transparencyPercent / 100));
@@ -127,6 +152,7 @@ const FloatingButton = {
           window.floatingButtonApi.endDrag();
         }
       } else {
+        playClickSound();
         emit('click');
       }
 
@@ -165,6 +191,7 @@ const FloatingButton = {
         class="floating-button"
         :class="{ 'is-dragging': isDragging }"
         :style="buttonStyle"
+        @contextmenu.prevent
         @pointerdown="handlePointerDown"
         @pointermove="handlePointerMove"
         @pointerup="handlePointerUp"

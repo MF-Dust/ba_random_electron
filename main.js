@@ -1,7 +1,9 @@
-const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, shell, dialog, ipcMain } = require('electron');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { buildTrayContextMenu } = require('./tray-menu');
 
 const DEFAULT_CONFIG = {
   floatingButton: {
@@ -16,8 +18,10 @@ const DEFAULT_CONFIG = {
   pickCountDialog: {
     defaultPlayMusic: false,
     backgroundDarknessPercent: 50,
-    backgroundBlurPercent: 10,
     defaultCount: 1
+  },
+  webConfig: {
+    port: 21219
   }
 };
 
@@ -26,7 +30,12 @@ const dragSessions = new Map();
 let appTray = null;
 let floatingButtonWindow = null;
 let pickCountWindow = null;
+let isPickCountWindowReady = false;
+let isFloatingHiddenForPickCount = false;
+let configServer = null;
+let configServerPort = null;
 let isQuitting = false;
+let floatingWindowWatchdog = null;
 const FLOATING_WINDOW_FADE_MS = 400;
 
 function clampNumber(value, min, max, fallback) {
@@ -40,6 +49,7 @@ function normalizeConfig(input) {
   const fb = source.floatingButton && typeof source.floatingButton === 'object' ? source.floatingButton : {};
   const position = fb.position && typeof fb.position === 'object' ? fb.position : {};
   const pick = source.pickCountDialog && typeof source.pickCountDialog === 'object' ? source.pickCountDialog : {};
+  const web = source.webConfig && typeof source.webConfig === 'object' ? source.webConfig : {};
 
   const alwaysOnTop =
     typeof fb.alwaysOnTop === 'boolean' ? fb.alwaysOnTop : DEFAULT_CONFIG.floatingButton.alwaysOnTop;
@@ -73,12 +83,6 @@ function normalizeConfig(input) {
         100,
         DEFAULT_CONFIG.pickCountDialog.backgroundDarknessPercent
       ),
-      backgroundBlurPercent: clampNumber(
-        pick.backgroundBlurPercent,
-        0,
-        100,
-        DEFAULT_CONFIG.pickCountDialog.backgroundBlurPercent
-      ),
       defaultCount: Math.round(
         clampNumber(
           pick.defaultCount,
@@ -87,6 +91,9 @@ function normalizeConfig(input) {
           DEFAULT_CONFIG.pickCountDialog.defaultCount
         )
       )
+    },
+    webConfig: {
+      port: Math.round(clampNumber(web.port, 1, 65535, DEFAULT_CONFIG.webConfig.port))
     }
   };
 }
@@ -98,6 +105,7 @@ function getConfigPath() {
 function toConfigYamlWithComments(config) {
   const fb = config.floatingButton;
   const pick = config.pickCountDialog;
+  const web = config.webConfig;
   const posX = Number.isFinite(Number(fb.position.x)) ? String(Math.round(Number(fb.position.x))) : 'null';
   const posY = Number.isFinite(Number(fb.position.y)) ? String(Math.round(Number(fb.position.y))) : 'null';
 
@@ -121,10 +129,13 @@ function toConfigYamlWithComments(config) {
     `  defaultPlayMusic: ${pick.defaultPlayMusic ? 'true' : 'false'}`,
     '  # 背景变暗程度，范围 0-100（100 接近全黑），默认 50',
     `  backgroundDarknessPercent: ${pick.backgroundDarknessPercent}`,
-    '  # 背景模糊程度，范围 0-100，默认 10',
-    `  backgroundBlurPercent: ${pick.backgroundBlurPercent}`,
     '  # 人数默认值，范围 1-10 的整数，默认 1',
     `  defaultCount: ${pick.defaultCount}`,
+    '',
+    '# 网页配置服务',
+    'webConfig:',
+    '  # 配置网页端口（默认 21219）',
+    `  port: ${web.port}`,
     ''
   ].join('\n');
 }
@@ -158,6 +169,147 @@ function loadConfig() {
     saveConfig(fallback);
     return fallback;
   }
+}
+
+function refreshConfig() {
+  currentConfig = loadConfig();
+  return currentConfig;
+}
+
+function getMimeType(filePath) {
+  if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
+  if (filePath.endsWith('.js')) return 'application/javascript; charset=utf-8';
+  if (filePath.endsWith('.css')) return 'text/css; charset=utf-8';
+  if (filePath.endsWith('.json')) return 'application/json; charset=utf-8';
+  return 'text/plain; charset=utf-8';
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8'
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function parseRequestJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        reject(new Error('Payload too large'));
+      }
+    });
+
+    req.on('end', () => {
+      if (!body.trim()) {
+        resolve({});
+        return;
+      }
+      try {
+        resolve(JSON.parse(body));
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    req.on('error', reject);
+  });
+}
+
+function openConfigPageInBrowser() {
+  const config = refreshConfig();
+  const url = `http://localhost:${config.webConfig.port}`;
+  shell.openExternal(url);
+}
+
+function createConfigServerRequestHandler() {
+  return async (req, res) => {
+    const requestUrl = req.url || '/';
+    const rendererDir = path.join(__dirname, 'renderer', 'web-config');
+
+    if (req.method === 'GET' && requestUrl === '/api/config') {
+      return sendJson(res, 200, refreshConfig());
+    }
+
+    if (req.method === 'POST' && requestUrl === '/api/config') {
+      try {
+        const payload = await parseRequestJsonBody(req);
+        const normalized = normalizeConfig(payload);
+        currentConfig = normalized;
+        saveConfig(normalized);
+        return sendJson(res, 200, {
+          ok: true,
+          message: '配置保存成功',
+          restartRequired: true
+        });
+      } catch (error) {
+        return sendJson(res, 400, {
+          ok: false,
+          message: '配置保存失败，请检查输入格式'
+        });
+      }
+    }
+
+    if (req.method === 'POST' && requestUrl === '/api/restart') {
+      sendJson(res, 200, { ok: true });
+      setTimeout(() => {
+        isQuitting = true;
+        app.relaunch();
+        app.exit(0);
+      }, 80);
+      return;
+    }
+
+    let targetFile = '';
+    if (requestUrl === '/' || requestUrl === '/index.html') {
+      targetFile = path.join(rendererDir, 'index.html');
+    } else if (requestUrl === '/app.js') {
+      targetFile = path.join(rendererDir, 'app.js');
+    } else if (requestUrl === '/style.css') {
+      targetFile = path.join(rendererDir, 'style.css');
+    }
+
+    if (targetFile) {
+      try {
+        const fileContent = fs.readFileSync(targetFile);
+        res.writeHead(200, { 'Content-Type': getMimeType(targetFile) });
+        res.end(fileContent);
+      } catch (error) {
+        sendJson(res, 500, { ok: false, message: '页面加载失败' });
+      }
+      return;
+    }
+
+    sendJson(res, 404, { ok: false, message: 'Not Found' });
+  };
+}
+
+function startConfigServer() {
+  const config = refreshConfig();
+  const desiredPort = config.webConfig.port;
+
+  if (configServer && configServerPort === desiredPort) {
+    return;
+  }
+
+  if (configServer) {
+    configServer.close();
+    configServer = null;
+    configServerPort = null;
+  }
+
+  const server = http.createServer(createConfigServerRequestHandler());
+  server.listen(desiredPort, '127.0.0.1', () => {
+    configServerPort = desiredPort;
+    console.log(`Config web server running at http://localhost:${desiredPort}`);
+  });
+
+  server.on('error', (error) => {
+    console.error('Failed to start config web server:', error);
+  });
+
+  configServer = server;
 }
 
 function persistFloatingButtonPosition() {
@@ -244,7 +396,11 @@ async function fadeInFloatingButtonWindow() {
 }
 
 function createFloatingButtonWindow() {
-  currentConfig = loadConfig();
+  if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    return floatingButtonWindow;
+  }
+
+  currentConfig = refreshConfig();
   const config = currentConfig;
   const sizePx = Math.round(50 * (config.floatingButton.sizePercent / 100));
 
@@ -265,6 +421,8 @@ function createFloatingButtonWindow() {
     transparent: true,
     alwaysOnTop: config.floatingButton.alwaysOnTop,
     skipTaskbar: true,
+    type: 'toolbar', // 防止被托盘或系统当作普通窗口隐藏
+    focusable: process.platform !== 'win32', // Windows下设为false以防焦点抢夺导致的隐藏Bug，但仍能接收点击
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -280,12 +438,73 @@ function createFloatingButtonWindow() {
   const win = new BrowserWindow(windowOptions);
   floatingButtonWindow = win;
 
+  // 强制最高层级置顶，解决因为设置了 type: 'toolbar' 或 focusable 导致置顶失效的问题
+  if (config.floatingButton.alwaysOnTop) {
+    win.setAlwaysOnTop(true, 'screen-saver');
+  }
+
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.on('context-menu', (event) => {
+    event.preventDefault();
+  });
+
+  win.on('hide', () => {
+    if (isQuitting || isFloatingHiddenForPickCount) {
+      return;
+    }
+
+    setTimeout(() => {
+      if (!floatingButtonWindow || floatingButtonWindow.isDestroyed()) {
+        return;
+      }
+      if (isQuitting || isFloatingHiddenForPickCount) {
+        return;
+      }
+
+      if (!floatingButtonWindow.isVisible()) {
+        floatingButtonWindow.setOpacity(1);
+        floatingButtonWindow.show();
+      }
+    }, 0);
+  });
 
   win.on('closed', () => {
     floatingButtonWindow = null;
+
+    if (!isQuitting && !isFloatingHiddenForPickCount) {
+      setTimeout(() => {
+        if (!isQuitting && !isFloatingHiddenForPickCount) {
+          createFloatingButtonWindow();
+        }
+      }, 60);
+    }
   });
+
+  return win;
+}
+
+function startFloatingWindowWatchdog() {
+  if (floatingWindowWatchdog) {
+    clearInterval(floatingWindowWatchdog);
+    floatingWindowWatchdog = null;
+  }
+
+  floatingWindowWatchdog = setInterval(() => {
+    if (isQuitting || isFloatingHiddenForPickCount) {
+      return;
+    }
+
+    if (!floatingButtonWindow || floatingButtonWindow.isDestroyed()) {
+      createFloatingButtonWindow();
+      return;
+    }
+
+    if (!floatingButtonWindow.isVisible()) {
+      floatingButtonWindow.setOpacity(1);
+      floatingButtonWindow.show();
+    }
+  }, 450);
 }
 
 function closePickCountWindow() {
@@ -294,18 +513,20 @@ function closePickCountWindow() {
     return;
   }
 
-  const win = pickCountWindow;
-  pickCountWindow = null;
-  win.close();
+  if (pickCountWindow.isVisible()) {
+    pickCountWindow.hide();
+  }
+  isFloatingHiddenForPickCount = false;
+  fadeInFloatingButtonWindow();
 }
 
-function createPickCountWindow() {
+function createPickCountWindowInstance() {
   if (pickCountWindow && !pickCountWindow.isDestroyed()) {
-    pickCountWindow.focus();
     return;
   }
 
   const win = new BrowserWindow({
+    show: false,
     frame: false,
     transparent: true,
     fullscreen: true,
@@ -323,14 +544,46 @@ function createPickCountWindow() {
   });
 
   pickCountWindow = win;
+  isPickCountWindowReady = false;
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'renderer', 'pick-count.html'));
 
-  win.on('closed', () => {
-    pickCountWindow = null;
-    fadeInFloatingButtonWindow();
+  win.once('ready-to-show', () => {
+    isPickCountWindowReady = true;
   });
 
+  win.on('closed', () => {
+    pickCountWindow = null;
+    isPickCountWindowReady = false;
+    if (!isQuitting) {
+      fadeInFloatingButtonWindow();
+    }
+  });
+}
+
+function createPickCountWindow() {
+  createPickCountWindowInstance();
+
+  if (!pickCountWindow || pickCountWindow.isDestroyed()) {
+    return;
+  }
+
+  const openPickCountWindow = () => {
+    if (!pickCountWindow || pickCountWindow.isDestroyed()) {
+      return;
+    }
+    pickCountWindow.webContents.send('pick-count:open');
+    pickCountWindow.show();
+    pickCountWindow.focus();
+  };
+
+  if (isPickCountWindowReady) {
+    openPickCountWindow();
+  } else {
+    pickCountWindow.once('ready-to-show', openPickCountWindow);
+  }
+
+  isFloatingHiddenForPickCount = true;
   fadeOutFloatingButtonWindow();
 }
 
@@ -340,20 +593,30 @@ function createTray() {
   appTray = new Tray(trayIcon);
 
   appTray.setToolTip('BA Random Electron');
-  appTray.setContextMenu(
-    Menu.buildFromTemplate([
-      {
-        label: '退出',
-        click: () => {
-          app.quit();
-        }
+  const trayMenu = buildTrayContextMenu({
+    onOpenConfig: () => {
+      openConfigPageInBrowser();
+    },
+    onQuit: async () => {
+      const result = await dialog.showMessageBox({
+        type: 'question',
+        buttons: ['取消', '退出'],
+        defaultId: 0,
+        cancelId: 0,
+        title: '确认退出',
+        message: '确定要退出 BA Random Electron 吗？'
+      });
+
+      if (result.response === 1) {
+        app.quit();
       }
-    ])
-  );
+    }
+  });
+  appTray.setContextMenu(trayMenu);
 }
 
 ipcMain.handle('floating-button:get-config', () => {
-  return currentConfig.floatingButton;
+  return refreshConfig().floatingButton;
 });
 
 ipcMain.on('floating-button:clicked', () => {
@@ -361,7 +624,7 @@ ipcMain.on('floating-button:clicked', () => {
 });
 
 ipcMain.handle('pick-count:get-config', () => {
-  return currentConfig.pickCountDialog;
+  return refreshConfig().pickCountDialog;
 });
 
 ipcMain.on('pick-count:cancel', () => {
@@ -403,8 +666,11 @@ ipcMain.on('floating-button:drag-end', (event) => {
 });
 
 app.whenReady().then(() => {
+  startConfigServer();
   createTray();
   createFloatingButtonWindow();
+  createPickCountWindowInstance();
+  startFloatingWindowWatchdog();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -418,11 +684,13 @@ app.on('before-quit', () => {
     return;
   }
   isQuitting = true;
+  if (floatingWindowWatchdog) {
+    clearInterval(floatingWindowWatchdog);
+    floatingWindowWatchdog = null;
+  }
   persistFloatingButtonPosition();
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Keep app resident in tray; explicit quit should come from tray menu.
 });

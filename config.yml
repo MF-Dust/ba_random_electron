@@ -8,8 +8,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1134
-    y: 630
+    x: 1076
+    y: 652
 
 # 人数选择窗口配置
 pickCountDialog:
@@ -17,7 +17,10 @@ pickCountDialog:
   defaultPlayMusic: false
   # 背景变暗程度，范围 0-100（100 接近全黑），默认 50
   backgroundDarknessPercent: 50
-  # 背景模糊程度，范围 0-100，默认 10
-  backgroundBlurPercent: 10
   # 人数默认值，范围 1-10 的整数，默认 1
   defaultCount: 1
+
+# 网页配置服务
+webConfig:
+  # 配置网页端口（默认 21219）
+  port: 21219

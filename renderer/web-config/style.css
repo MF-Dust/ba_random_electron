@@ -1,0 +1,90 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  background: radial-gradient(circle at 20% 0%, #e8f5ff, #c7dcf5 40%, #afc7e9 100%);
+  color: #133053;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.panel {
+  width: min(760px, 96vw);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(12, 36, 68, 0.22);
+  padding: 24px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 1px;
+}
+
+.hint {
+  margin-top: 8px;
+  color: #355985;
+}
+
+h2 {
+  margin: 22px 0 10px;
+  font-size: 20px;
+  border-left: 4px solid #2c69b2;
+  padding-left: 10px;
+}
+
+label {
+  display: block;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="number"] {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #aac2e0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.save-btn {
+  margin-top: 20px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 13px 14px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(180deg, #2f83db, #1f5ea6);
+}

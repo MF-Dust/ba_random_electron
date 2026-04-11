@@ -11,5 +11,12 @@ contextBridge.exposeInMainWorld('floatingButtonApi', {
 contextBridge.exposeInMainWorld('pickCountApi', {
   getConfig: () => ipcRenderer.invoke('pick-count:get-config'),
   cancel: () => ipcRenderer.send('pick-count:cancel'),
-  confirm: (count, playMusic) => ipcRenderer.send('pick-count:confirm', { count, playMusic })
+  confirm: (count, playMusic) => ipcRenderer.send('pick-count:confirm', { count, playMusic }),
+  onOpen: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('pick-count:open', listener);
+    return () => {
+      ipcRenderer.removeListener('pick-count:open', listener);
+    };
+  }
 });
