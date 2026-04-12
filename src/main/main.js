@@ -226,7 +226,7 @@ function openConfigPageInBrowser() {
 function createConfigServerRequestHandler() {
   return async (req, res) => {
     const requestUrl = req.url || '/';
-    const rendererDir = path.join(__dirname, 'renderer', 'web-config');
+    const rendererDir = path.join(__dirname, '../renderer', 'web-config');
 
     if (req.method === 'GET' && requestUrl === '/api/config') {
       return sendJson(res, 200, refreshConfig());
@@ -261,24 +261,28 @@ function createConfigServerRequestHandler() {
       return;
     }
 
-    let targetFile = '';
-    if (requestUrl === '/' || requestUrl === '/index.html') {
-      targetFile = path.join(rendererDir, 'index.html');
-    } else if (requestUrl === '/app.js') {
-      targetFile = path.join(rendererDir, 'app.js');
-    } else if (requestUrl === '/style.css') {
-      targetFile = path.join(rendererDir, 'style.css');
-    }
+    const urlPath = requestUrl.split('?')[0].split('#')[0];
 
-    if (targetFile) {
-      try {
-        const fileContent = fs.readFileSync(targetFile);
-        res.writeHead(200, { 'Content-Type': getMimeType(targetFile) });
-        res.end(fileContent);
-      } catch (error) {
-        sendJson(res, 500, { ok: false, message: '页面加载失败' });
-      }
-      return;
+    if (!urlPath.startsWith('/api')) {
+        if (process.env.VITE_DEV_SERVER_URL) {
+            res.writeHead(302, { Location: process.env.VITE_DEV_SERVER_URL + '#/config' });
+            res.end();
+            return;
+        }
+
+        const distDir = path.join(__dirname, '../dist');
+        const targetPath = path.join(distDir, urlPath === '/' ? 'index.html' : urlPath);
+        
+        if (!targetPath.startsWith(distDir)) {
+          return sendJson(res, 403, { ok: false, message: 'Forbidden' });
+        }
+        
+        if (fs.existsSync(targetPath) && fs.statSync(targetPath).isFile()) {
+          const fileContent = fs.readFileSync(targetPath);
+          res.writeHead(200, { 'Content-Type': getMimeType(targetPath) });
+          res.end(fileContent);
+          return;
+        }
     }
 
     sendJson(res, 404, { ok: false, message: 'Not Found' });
@@ -444,7 +448,12 @@ function createFloatingButtonWindow() {
   }
 
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    // When built, Vite outputs renderer to dist (not renderer)
+    win.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
   win.webContents.on('context-menu', (event) => {
     event.preventDefault();
   });
@@ -546,7 +555,12 @@ function createPickCountWindowInstance() {
   pickCountWindow = win;
   isPickCountWindowReady = false;
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, 'renderer', 'pick-count.html'));
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(`${process.env.VITE_DEV_SERVER_URL}#/pick-count`);
+  } else {
+    // Cannot load file with hash cleanly via loadFile, use loadURL with file protocol
+    win.loadURL(`file://${path.join(__dirname, '../dist/index.html')}#/pick-count`);
+  }
 
   win.once('ready-to-show', () => {
     isPickCountWindowReady = true;
@@ -588,7 +602,11 @@ function createPickCountWindow() {
 }
 
 function createTray() {
-  const trayIconPath = path.join(__dirname, 'image', 'tray.png');
+  const isDev = !!process.env.VITE_DEV_SERVER_URL;
+  // During Vite dev, __dirname is 'dist-electron'
+  const trayIconPath = isDev
+    ? path.join(__dirname, '../public/image/tray.png')
+    : path.join(__dirname, '../dist/image/tray.png');
   const trayIcon = nativeImage.createFromPath(trayIconPath);
   appTray = new Tray(trayIcon);
 
@@ -597,19 +615,13 @@ function createTray() {
     onOpenConfig: () => {
       openConfigPageInBrowser();
     },
-    onQuit: async () => {
-      const result = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['取消', '退出'],
-        defaultId: 0,
-        cancelId: 0,
-        title: '确认退出',
-        message: '确定要退出 BA Random Electron 吗？'
-      });
-
-      if (result.response === 1) {
-        app.quit();
-      }
+    onRestart: () => {
+      isQuitting = true;
+      app.relaunch();
+      app.exit(0);
+    },
+    onQuit: () => {
+      app.quit();
     }
   });
   appTray.setContextMenu(trayMenu);
