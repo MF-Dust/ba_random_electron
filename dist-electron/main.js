@@ -2150,27 +2150,18 @@ var require_js_yaml = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 //#region src/main/tray-menu.js
 var require_tray_menu = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var { Menu } = require("electron");
-	function buildTrayContextMenu({ onOpenConfig, onRestart, onQuit }) {
-		return Menu.buildFromTemplate([
-			{
-				label: "配置",
-				click: () => {
-					if (typeof onOpenConfig === "function") onOpenConfig();
-				}
-			},
-			{
-				label: "重启",
-				click: () => {
-					if (typeof onRestart === "function") onRestart();
-				}
-			},
-			{
-				label: "退出",
-				click: () => {
-					if (typeof onQuit === "function") onQuit();
-				}
+	function buildTrayContextMenu({ onOpenConfig, onQuit }) {
+		return Menu.buildFromTemplate([{
+			label: "配置",
+			click: () => {
+				if (typeof onOpenConfig === "function") onOpenConfig();
 			}
-		]);
+		}, {
+			label: "退出",
+			click: () => {
+				if (typeof onQuit === "function") onQuit();
+			}
+		}]);
 	}
 	module.exports = { buildTrayContextMenu };
 }));
@@ -2353,10 +2344,12 @@ function createConfigServerRequestHandler() {
 			const normalized = normalizeConfig(await parseRequestJsonBody(req));
 			currentConfig = normalized;
 			saveConfig(normalized);
+			startConfigServer();
+			if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) floatingButtonWindow.close();
 			return sendJson(res, 200, {
 				ok: true,
-				message: "配置保存成功",
-				restartRequired: true
+				message: "配置保存成功，悬浮窗已自动刷新配置",
+				restartRequired: false
 			});
 		} catch (error) {
 			return sendJson(res, 400, {
@@ -2611,11 +2604,6 @@ function createTray() {
 	const trayMenu = buildTrayContextMenu({
 		onOpenConfig: () => {
 			openConfigPageInBrowser();
-		},
-		onRestart: () => {
-			isQuitting = true;
-			app.relaunch();
-			app.exit(0);
 		},
 		onQuit: () => {
 			app.quit();

@@ -1,20 +1,12 @@
 const { Menu } = require('electron');
 
-function buildTrayContextMenu({ onOpenConfig, onRestart, onQuit }) {
+function buildTrayContextMenu({ onOpenConfig, onQuit }) {
   return Menu.buildFromTemplate([
     {
       label: '配置',
       click: () => {
         if (typeof onOpenConfig === 'function') {
           onOpenConfig();
-        }
-      }
-    },
-    {
-      label: '重启',
-      click: () => {
-        if (typeof onRestart === 'function') {
-          onRestart();
         }
       }
     },

@@ -238,10 +238,20 @@ function createConfigServerRequestHandler() {
         const normalized = normalizeConfig(payload);
         currentConfig = normalized;
         saveConfig(normalized);
+        
+        // 动态重启服务和窗口来免重启应用
+        startConfigServer();
+        if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+          // 直接关闭窗口将触发 close 事件，它会自动延时 60ms 重新创建一个完美应用了新尺寸及样式的新窗口。
+          // 这完全规避了 Windows 下无边框透明窗口直接 setSize 会渲染崩溃甚至消失的底层 Bug，
+          // 也避免了开发模式下 app.relaunch() 抛弃 Vite 代理的问题。
+          floatingButtonWindow.close();
+        }
+        
         return sendJson(res, 200, {
           ok: true,
-          message: '配置保存成功',
-          restartRequired: true
+          message: '配置保存成功，悬浮窗已自动刷新配置',
+          restartRequired: false
         });
       } catch (error) {
         return sendJson(res, 400, {
@@ -614,11 +624,6 @@ function createTray() {
   const trayMenu = buildTrayContextMenu({
     onOpenConfig: () => {
       openConfigPageInBrowser();
-    },
-    onRestart: () => {
-      isQuitting = true;
-      app.relaunch();
-      app.exit(0);
     },
     onQuit: () => {
       app.quit();

@@ -216,7 +216,6 @@ function handlePointerCancel(event) {
   align-items: center;
   justify-content: center;
   background: linear-gradient(145deg, #66CCFFF0, rgba(64, 145, 240, 0.95));
-  box-shadow: 0 10px 24px rgba(30, 70, 130, 0.24);
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
