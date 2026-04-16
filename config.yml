@@ -3,13 +3,13 @@ floatingButton:
   # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100
   sizePercent: 100
   # 透明度百分比，范围 0-100（0=完全不透明，100=完全透明），默认 20
-  transparencyPercent: 50
+  transparencyPercent: 20
   # 是否置顶（true/false），默认 true
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1140
-    y: 658
+    x: 1130
+    y: 558
 
 # 人数选择窗口配置
 pickCountDialog:

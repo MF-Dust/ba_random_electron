@@ -662,7 +662,9 @@ ipcMain.on('floating-button:drag-start', (event, payload) => {
   const bounds = win.getBounds();
   dragSessions.set(event.sender.id, {
     startWinX: bounds.x,
-    startWinY: bounds.y
+    startWinY: bounds.y,
+    width: bounds.width,
+    height: bounds.height
   });
 });
 
@@ -675,7 +677,12 @@ ipcMain.on('floating-button:drag-move', (event, payload) => {
   const dy = Number(payload.dy);
   if (Number.isNaN(dx) || Number.isNaN(dy)) return;
 
-  win.setPosition(Math.round(session.startWinX + dx), Math.round(session.startWinY + dy));
+  win.setBounds({
+    x: Math.round(session.startWinX + dx),
+    y: Math.round(session.startWinY + dy),
+    width: session.width,
+    height: session.height
+  });
 });
 
 ipcMain.on('floating-button:drag-end', (event) => {

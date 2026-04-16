@@ -215,10 +215,10 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 12px;
   padding: 13px 14px;
-  color: #fff;
+  color: #000000;
   font-size: 17px;
   font-weight: 700;
   cursor: pointer;
-  background: linear-gradient(180deg, #2f83db, #1f5ea6);
+  background: #eae72192;
 }
 </style>

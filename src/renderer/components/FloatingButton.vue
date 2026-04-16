@@ -216,7 +216,7 @@ function handlePointerCancel(event) {
   align-items: center;
   justify-content: center;
   background: linear-gradient(145deg, #66CCFFF0, rgba(64, 145, 240, 0.95));
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 300ms ease, box-shadow 300ms ease;
 }
 
 .floating-button:hover {
