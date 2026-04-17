@@ -8,8 +8,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1130
-    y: 558
+    x: 1381
+    y: 674
 
 # 人数选择窗口配置
 pickCountDialog:

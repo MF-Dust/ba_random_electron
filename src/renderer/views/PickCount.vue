@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
 
       <label class="pick-music-row">
         <input class="pick-checkbox" type="checkbox" v-model="playMusic" :disabled="isLeaving" />
-        <span>播放点名背景音乐</span>
+        <span>播放(*喜庆的)点名背景音乐</span>
       </label>
     </div>
   </div>
