@@ -1,3 +1,6 @@
+# 抽取名单列表
+studentList: []
+
 # 悬浮按钮配置
 floatingButton:
   # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100
@@ -8,8 +11,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1130
-    y: 558
+    x: 1342
+    y: 660
 
 # 人数选择窗口配置
 pickCountDialog:

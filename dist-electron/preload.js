@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld("floatingButtonApi", {
 		dx,
 		dy
 	}),
-	endDrag: () => ipcRenderer.send("floating-button:drag-end")
+	endDrag: () => ipcRenderer.send("floating-button:drag-end"),
+	setIgnoreMouseEvents: (ignore) => ipcRenderer.send("floating-button:set-ignore-mouse", ignore)
 });
 contextBridge.exposeInMainWorld("pickCountApi", {
 	getConfig: () => ipcRenderer.invoke("pick-count:get-config"),

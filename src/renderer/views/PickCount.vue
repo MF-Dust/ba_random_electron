@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
 
       <label class="pick-music-row">
         <input class="pick-checkbox" type="checkbox" v-model="playMusic" :disabled="isLeaving" />
-        <span>播放点名背景音乐</span>
+        <span>播放(*喜庆的)点名背景音乐</span>
       </label>
     </div>
   </div>
@@ -250,11 +250,9 @@ onBeforeUnmount(() => {
 
 .pick-panel {
   width: min(560px, 92vw);
-  border-radius: 24px;
+  border-radius: 20px;
   padding: 30px 30px 20px;
-  background:
-    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 50%),
-    linear-gradient(160deg, rgba(231, 244, 255, 0.96), rgba(189, 218, 248, 0.94));
+  background: #eff6ff;
   border: 1px solid rgba(255, 255, 255, 0.76);
   box-shadow:
     0 24px 68px rgba(3, 17, 44, 0.42),

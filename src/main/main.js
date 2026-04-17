@@ -5,7 +5,10 @@ const path = require('path');
 const yaml = require('js-yaml');
 const { buildTrayContextMenu } = require('./tray-menu');
 
+const isDebugMode = !!process.env.VITE_DEV_SERVER_URL || process.argv.includes('-debug') || process.argv.includes('--debug');
+
 const DEFAULT_CONFIG = {
+  studentList: [],
   floatingButton: {
     sizePercent: 100,
     transparencyPercent: 20,
@@ -46,6 +49,12 @@ function clampNumber(value, min, max, fallback) {
 
 function normalizeConfig(input) {
   const source = input && typeof input === 'object' ? input : {};
+  const rawStudents = Array.isArray(source.studentList) ? source.studentList : [];
+  const students = rawStudents.map(s => {
+    if (typeof s === 'string') return { name: s.trim(), weight: 1.0 };
+    if (s && typeof s === 'object') return { name: String(s.name || '').trim(), weight: Number.isFinite(Number(s.weight)) ? Number(s.weight) : 1.0 };
+    return null;
+  }).filter(s => s && s.name);
   const fb = source.floatingButton && typeof source.floatingButton === 'object' ? source.floatingButton : {};
   const position = fb.position && typeof fb.position === 'object' ? fb.position : {};
   const pick = source.pickCountDialog && typeof source.pickCountDialog === 'object' ? source.pickCountDialog : {};
@@ -55,6 +64,7 @@ function normalizeConfig(input) {
     typeof fb.alwaysOnTop === 'boolean' ? fb.alwaysOnTop : DEFAULT_CONFIG.floatingButton.alwaysOnTop;
 
   return {
+    studentList: students,
     floatingButton: {
       sizePercent: clampNumber(
         fb.sizePercent,
@@ -109,7 +119,14 @@ function toConfigYamlWithComments(config) {
   const posX = Number.isFinite(Number(fb.position.x)) ? String(Math.round(Number(fb.position.x))) : 'null';
   const posY = Number.isFinite(Number(fb.position.y)) ? String(Math.round(Number(fb.position.y))) : 'null';
 
+  const studentLines = Array.isArray(config.studentList) && config.studentList.length > 0
+    ? '\n' + config.studentList.map(s => `  - name: "${s.name}"\n    weight: ${s.weight}`).join('\n')
+    : ' []';
+
   return [
+    '# 抽取名单列表',
+    `studentList:${studentLines}`,
+    '',
     '# 悬浮按钮配置',
     'floatingButton:',
     '  # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100',
@@ -431,7 +448,7 @@ function createFloatingButtonWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    hasShadow: true,
+    hasShadow: false,
     transparent: true,
     alwaysOnTop: config.floatingButton.alwaysOnTop,
     skipTaskbar: true,
@@ -452,6 +469,9 @@ function createFloatingButtonWindow() {
   const win = new BrowserWindow(windowOptions);
   floatingButtonWindow = win;
 
+  // 允许鼠标穿透透明区域，但保留 hover/move 事件（由渲染端根据 hover 状态动态开闭）
+  win.setIgnoreMouseEvents(true, { forward: true });
+
   // 强制最高层级置顶，解决因为设置了 type: 'toolbar' 或 focusable 导致置顶失效的问题
   if (config.floatingButton.alwaysOnTop) {
     win.setAlwaysOnTop(true, 'screen-saver');
@@ -462,6 +482,11 @@ function createFloatingButtonWindow() {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
     // When built, Vite outputs renderer to dist (not renderer)
+
+  if (isDebugMode) {
+    win.webContents.openDevTools({ mode: 'detach' });
+  }
+
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
   win.webContents.on('context-menu', (event) => {
@@ -571,7 +596,11 @@ function createPickCountWindowInstance() {
     // Cannot load file with hash cleanly via loadFile, use loadURL with file protocol
     win.loadURL(`file://${path.join(__dirname, '../dist/index.html')}#/pick-count`);
   }
+if (isDebugMode) {
+    win.webContents.openDevTools({ mode: 'detach' });
+  }
 
+  
   win.once('ready-to-show', () => {
     isPickCountWindowReady = true;
   });
@@ -687,6 +716,13 @@ ipcMain.on('floating-button:drag-move', (event, payload) => {
 
 ipcMain.on('floating-button:drag-end', (event) => {
   dragSessions.delete(event.sender.id);
+});
+
+ipcMain.on('floating-button:set-ignore-mouse', (event, ignore) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    win.setIgnoreMouseEvents(ignore, { forward: true });
+  }
 });
 
 app.whenReady().then(() => {

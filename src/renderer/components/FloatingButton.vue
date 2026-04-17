@@ -9,6 +9,8 @@
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
       @pointercancel="handlePointerCancel"
+      @pointerenter="handlePointerEnter"
+      @pointerleave="handlePointerLeave"
       title="抽取"
     >
       <img src="/image/random.svg" alt="随机抽取" draggable="false" />
@@ -80,6 +82,7 @@ const textStyle = computed(() => {
 const pointerDown = ref(false)
 const activePointerId = ref(null)
 const isDragging = ref(false)
+const isHovering = ref(false)
 const startGlobalX = ref(0)
 const startGlobalY = ref(0)
 const pendingDx = ref(0)
@@ -124,11 +127,33 @@ function cancelScheduledMove() {
   }
 }
 
+function updateIgnoreMouse() {
+  if (!window.floatingButtonApi || !window.floatingButtonApi.setIgnoreMouseEvents) return
+  // 如果正处于按下状态或是悬停状态，就需要捕获事件 (ignore = false)
+  const shouldCapture = pointerDown.value || isHovering.value
+  window.floatingButtonApi.setIgnoreMouseEvents(!shouldCapture)
+}
+
+function handlePointerEnter(event) {
+  if (event.pointerType === 'mouse') {
+    isHovering.value = true
+    updateIgnoreMouse()
+  }
+}
+
+function handlePointerLeave(event) {
+  if (event.pointerType === 'mouse') {
+    isHovering.value = false
+    updateIgnoreMouse()
+  }
+}
+
 function handlePointerDown(event) {
   if (event.pointerType === 'mouse' && event.button !== 0) return
   pointerDown.value = true
   activePointerId.value = event.pointerId
   isDragging.value = false
+  updateIgnoreMouse()
   const point = getGlobalPoint(event)
   startGlobalX.value = point.x
   startGlobalY.value = point.y
@@ -179,6 +204,7 @@ function handlePointerUp(event) {
   pointerDown.value = false
   activePointerId.value = null
   isDragging.value = false
+  updateIgnoreMouse()
   if (event.currentTarget && event.currentTarget.releasePointerCapture) {
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
@@ -193,6 +219,7 @@ function handlePointerCancel(event) {
   pointerDown.value = false
   activePointerId.value = null
   isDragging.value = false
+  updateIgnoreMouse()
 }
 </script>
 
@@ -221,7 +248,7 @@ function handlePointerCancel(event) {
 
 .floating-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(30, 70, 130, 0.28);
+  box-shadow: 1px 10px 5px rgba(0, 0, 0, 0.1);
 }
 
 .floating-button:active {
@@ -236,8 +263,8 @@ function handlePointerCancel(event) {
 }
 
 .floating-button img {
-  width: 100%;
-  height: 100%;
+  width: 120%;
+  height: 120%;
   object-fit: contain;
   pointer-events: none;
 }
@@ -249,7 +276,7 @@ function handlePointerCancel(event) {
   transform: translateX(-50%);
   font-size: 12px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgb(255, 255, 255);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
   pointer-events: none;
 }
