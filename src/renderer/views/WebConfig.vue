@@ -43,9 +43,9 @@
               <div class="student-manager">
                 <p class="desc">老师可以在这里管理当前名单中人员及抽取权重，默认权重为1.0。权重越高，被抽取到的概率越大!</p>
                 <div class="student-list table-wrapper">
-                  <div v-if="config.studentList.length === 0" class="empty-tips">暂时没有名单哦~请先在“名单导入”中输入。</div>
+                  <div v-if="config.studentList.length === 0" class="empty-tips-text">暂时没有名单哦~请先在“名单导入”中输入。</div>
                   <div v-if="config.studentList.length === 0" class="empty-tips-arona">
-                  <!-- TO DO -->
+                  <img v-if="config.studentList.length === 0" src="/image/Arona_Empty.png" alt="Arona Empty" class="empty-tips-arona-img" />
                   </div>
                   <table class="student-table" v-else>
                     <thead>
@@ -297,7 +297,7 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: center;
   font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
-  background: radial-gradient(circle at 20% 0%, #e8f5ff, #c7dcf5 40%, #afc7e9 100%);
+  background:#c1e6ff;
   color: #133053;
 }
 
@@ -305,7 +305,7 @@ onMounted(() => {
   width: min(760px, 96vw);
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 20px 40px rgba(12, 36, 68, 0.22);
   padding: 24px;
 }
@@ -477,10 +477,24 @@ input[type="checkbox"] {
   border-radius: 8px;
   background: #fdfdfd;
 }
-.empty-tips {
+.empty-tips-text {
   text-align: center;
   color: #92a4ba;
-  padding: 40px 0;
+  padding-bottom: 0px;
+  padding-top: 40px;
+}
+
+.empty-tips-arona {
+  text-align: center;
+  color: #92a4ba;
+  padding-bottom: 40px;
+  padding-top: 10px;
+}
+
+
+.empty-tips-arona-img {
+  width: 20%;
+  opacity: 0.8;
 }
 .student-table {
   width: 100%;
