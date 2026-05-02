@@ -2199,6 +2199,9 @@ var floatingButtonWindow = null;
 var pickCountWindow = null;
 var isPickCountWindowReady = false;
 var isFloatingHiddenForPickCount = false;
+var pickResultWindow = null;
+var isPickResultWindowReady = false;
+var currentPickResults = [];
 var configServer = null;
 var configServerPort = null;
 var isQuitting = false;
@@ -2315,6 +2318,34 @@ function loadConfig() {
 function refreshConfig() {
 	currentConfig = loadConfig();
 	return currentConfig;
+}
+function pickStudentsByWeight(count) {
+	const config = refreshConfig();
+	const pool = (Array.isArray(config.studentList) ? config.studentList : []).map((s) => ({
+		name: String(s.name || "").trim(),
+		weight: Math.max(0, Number(s.weight) || 0)
+	})).filter((s) => s.name);
+	if (pool.length === 0 || count <= 0) return [];
+	const targetCount = Math.min(count, pool.length);
+	const picked = [];
+	for (let i = 0; i < targetCount; i++) {
+		const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
+		let pickIndex = -1;
+		if (totalWeight > 0) {
+			let roll = Math.random() * totalWeight;
+			for (let j = 0; j < pool.length; j++) {
+				roll -= pool[j].weight;
+				if (roll <= 0) {
+					pickIndex = j;
+					break;
+				}
+			}
+		}
+		if (pickIndex < 0) pickIndex = Math.floor(Math.random() * pool.length);
+		const chosen = pool.splice(pickIndex, 1)[0];
+		picked.push({ name: chosen.name });
+	}
+	return picked;
 }
 function getMimeType(filePath) {
 	if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
@@ -2562,12 +2593,20 @@ function startFloatingWindowWatchdog() {
 		}
 	}, 450);
 }
-function closePickCountWindow() {
+function closePickCountWindow(options = {}) {
+	const keepFloatingHidden = Boolean(options.keepFloatingHidden);
 	if (!pickCountWindow || pickCountWindow.isDestroyed()) {
-		fadeInFloatingButtonWindow();
+		if (!keepFloatingHidden) {
+			isFloatingHiddenForPickCount = false;
+			fadeInFloatingButtonWindow();
+		}
 		return;
 	}
 	if (pickCountWindow.isVisible()) pickCountWindow.hide();
+	if (keepFloatingHidden) {
+		isFloatingHiddenForPickCount = true;
+		return;
+	}
 	isFloatingHiddenForPickCount = false;
 	fadeInFloatingButtonWindow();
 }
@@ -2619,6 +2658,69 @@ function createPickCountWindow() {
 	isFloatingHiddenForPickCount = true;
 	fadeOutFloatingButtonWindow();
 }
+function closePickResultWindow() {
+	if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+		isFloatingHiddenForPickCount = false;
+		fadeInFloatingButtonWindow();
+		return;
+	}
+	if (pickResultWindow.isVisible()) pickResultWindow.hide();
+	isFloatingHiddenForPickCount = false;
+	fadeInFloatingButtonWindow();
+}
+function createPickResultWindowInstance() {
+	if (pickResultWindow && !pickResultWindow.isDestroyed()) return;
+	const win = new BrowserWindow({
+		show: false,
+		frame: false,
+		transparent: true,
+		fullscreen: true,
+		resizable: false,
+		minimizable: false,
+		maximizable: false,
+		movable: false,
+		alwaysOnTop: true,
+		skipTaskbar: true,
+		backgroundColor: "#00000000",
+		webPreferences: {
+			preload: path.join(__dirname, "preload.js"),
+			contextIsolation: true,
+			nodeIntegration: false
+		}
+	});
+	pickResultWindow = win;
+	isPickResultWindowReady = false;
+	win.setMenuBarVisibility(false);
+	if (process.env.VITE_DEV_SERVER_URL) win.loadURL(`${process.env.VITE_DEV_SERVER_URL}#/pick-result`);
+	else win.loadURL(`file://${path.join(__dirname, "../dist/index.html")}#/pick-result`);
+	if (isDebugMode) win.webContents.openDevTools({ mode: "detach" });
+	win.once("ready-to-show", () => {
+		isPickResultWindowReady = true;
+	});
+	win.on("closed", () => {
+		pickResultWindow = null;
+		isPickResultWindowReady = false;
+		if (!isQuitting) {
+			isFloatingHiddenForPickCount = false;
+			fadeInFloatingButtonWindow();
+		}
+	});
+}
+function openPickResultWindow(results) {
+	currentPickResults = Array.isArray(results) ? results : [];
+	createPickResultWindowInstance();
+	if (!pickResultWindow || pickResultWindow.isDestroyed()) return;
+	const openResultWindow = () => {
+		if (!pickResultWindow || pickResultWindow.isDestroyed()) return;
+		pickResultWindow.webContents.send("pick-result:open", { results: currentPickResults });
+		pickResultWindow.show();
+		pickResultWindow.focus();
+	};
+	if (isPickResultWindowReady) openResultWindow();
+	else pickResultWindow.once("ready-to-show", openResultWindow);
+	isFloatingHiddenForPickCount = true;
+	fadeOutFloatingButtonWindow();
+}
 function createTray() {
 	const trayIconPath = !!process.env.VITE_DEV_SERVER_URL ? path.join(__dirname, "../public/image/tray.png") : path.join(__dirname, "../dist/image/tray.png");
 	appTray = new Tray(nativeImage.createFromPath(trayIconPath));
@@ -2649,7 +2751,15 @@ ipcMain.on("pick-count:confirm", (event, payload) => {
 	const selectedCount = Math.round(clampNumber(payload && payload.count, 1, 10, 1));
 	const playMusic = Boolean(payload && payload.playMusic);
 	console.log(`Pick count confirmed. count=${selectedCount}, playMusic=${playMusic}`);
-	closePickCountWindow();
+	const pickedStudents = pickStudentsByWeight(selectedCount);
+	closePickCountWindow({ keepFloatingHidden: true });
+	openPickResultWindow(pickedStudents);
+});
+ipcMain.handle("pick-result:get-results", () => {
+	return currentPickResults;
+});
+ipcMain.on("pick-result:close", () => {
+	closePickResultWindow();
 });
 ipcMain.on("floating-button:drag-start", (event, payload) => {
 	const win = BrowserWindow.fromWebContents(event.sender);

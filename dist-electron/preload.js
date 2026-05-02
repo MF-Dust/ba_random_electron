@@ -26,4 +26,15 @@ contextBridge.exposeInMainWorld("pickCountApi", {
 		};
 	}
 });
+contextBridge.exposeInMainWorld("pickResultApi", {
+	getResults: () => ipcRenderer.invoke("pick-result:get-results"),
+	close: () => ipcRenderer.send("pick-result:close"),
+	onOpen: (callback) => {
+		const listener = (_event, payload) => callback(payload);
+		ipcRenderer.on("pick-result:open", listener);
+		return () => {
+			ipcRenderer.removeListener("pick-result:open", listener);
+		};
+	}
+});
 //#endregion

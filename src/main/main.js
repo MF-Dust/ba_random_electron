@@ -35,6 +35,9 @@ let floatingButtonWindow = null;
 let pickCountWindow = null;
 let isPickCountWindowReady = false;
 let isFloatingHiddenForPickCount = false;
+let pickResultWindow = null;
+let isPickResultWindowReady = false;
+let currentPickResults = [];
 let configServer = null;
 let configServerPort = null;
 let isQuitting = false;
@@ -191,6 +194,49 @@ function loadConfig() {
 function refreshConfig() {
   currentConfig = loadConfig();
   return currentConfig;
+}
+
+function pickStudentsByWeight(count) {
+  const config = refreshConfig();
+  const rawList = Array.isArray(config.studentList) ? config.studentList : [];
+  const pool = rawList
+    .map((s) => ({
+      name: String(s.name || '').trim(),
+      weight: Math.max(0, Number(s.weight) || 0)
+    }))
+    .filter((s) => s.name);
+
+  if (pool.length === 0 || count <= 0) {
+    return [];
+  }
+
+  const targetCount = Math.min(count, pool.length);
+  const picked = [];
+
+  for (let i = 0; i < targetCount; i++) {
+    const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
+    let pickIndex = -1;
+
+    if (totalWeight > 0) {
+      let roll = Math.random() * totalWeight;
+      for (let j = 0; j < pool.length; j++) {
+        roll -= pool[j].weight;
+        if (roll <= 0) {
+          pickIndex = j;
+          break;
+        }
+      }
+    }
+
+    if (pickIndex < 0) {
+      pickIndex = Math.floor(Math.random() * pool.length);
+    }
+
+    const chosen = pool.splice(pickIndex, 1)[0];
+    picked.push({ name: chosen.name });
+  }
+
+  return picked;
 }
 
 function getMimeType(filePath) {
@@ -551,15 +597,25 @@ function startFloatingWindowWatchdog() {
   }, 450);
 }
 
-function closePickCountWindow() {
+function closePickCountWindow(options = {}) {
+  const keepFloatingHidden = Boolean(options.keepFloatingHidden);
   if (!pickCountWindow || pickCountWindow.isDestroyed()) {
-    fadeInFloatingButtonWindow();
+    if (!keepFloatingHidden) {
+      isFloatingHiddenForPickCount = false;
+      fadeInFloatingButtonWindow();
+    }
     return;
   }
 
   if (pickCountWindow.isVisible()) {
     pickCountWindow.hide();
   }
+
+  if (keepFloatingHidden) {
+    isFloatingHiddenForPickCount = true;
+    return;
+  }
+
   isFloatingHiddenForPickCount = false;
   fadeInFloatingButtonWindow();
 }
@@ -640,6 +696,102 @@ function createPickCountWindow() {
   fadeOutFloatingButtonWindow();
 }
 
+function closePickResultWindow() {
+  if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+    isFloatingHiddenForPickCount = false;
+    fadeInFloatingButtonWindow();
+    return;
+  }
+
+  if (pickResultWindow.isVisible()) {
+    pickResultWindow.hide();
+  }
+
+  isFloatingHiddenForPickCount = false;
+  fadeInFloatingButtonWindow();
+}
+
+function createPickResultWindowInstance() {
+  if (pickResultWindow && !pickResultWindow.isDestroyed()) {
+    return;
+  }
+
+  const win = new BrowserWindow({
+    show: false,
+    frame: false,
+    transparent: true,
+    fullscreen: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    movable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  pickResultWindow = win;
+  isPickResultWindowReady = false;
+  win.setMenuBarVisibility(false);
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(`${process.env.VITE_DEV_SERVER_URL}#/pick-result`);
+  } else {
+    win.loadURL(`file://${path.join(__dirname, '../dist/index.html')}#/pick-result`);
+  }
+
+  if (isDebugMode) {
+    win.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  win.once('ready-to-show', () => {
+    isPickResultWindowReady = true;
+  });
+
+  win.on('closed', () => {
+    pickResultWindow = null;
+    isPickResultWindowReady = false;
+    if (!isQuitting) {
+      isFloatingHiddenForPickCount = false;
+      fadeInFloatingButtonWindow();
+    }
+  });
+}
+
+function openPickResultWindow(results) {
+  currentPickResults = Array.isArray(results) ? results : [];
+  createPickResultWindowInstance();
+
+  if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+    return;
+  }
+
+  const openResultWindow = () => {
+    if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+      return;
+    }
+    pickResultWindow.webContents.send('pick-result:open', {
+      results: currentPickResults
+    });
+    pickResultWindow.show();
+    pickResultWindow.focus();
+  };
+
+  if (isPickResultWindowReady) {
+    openResultWindow();
+  } else {
+    pickResultWindow.once('ready-to-show', openResultWindow);
+  }
+
+  isFloatingHiddenForPickCount = true;
+  fadeOutFloatingButtonWindow();
+}
+
 function createTray() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL;
   // During Vite dev, __dirname is 'dist-electron'
@@ -681,7 +833,17 @@ ipcMain.on('pick-count:confirm', (event, payload) => {
   const selectedCount = Math.round(clampNumber(payload && payload.count, 1, 10, 1));
   const playMusic = Boolean(payload && payload.playMusic);
   console.log(`Pick count confirmed. count=${selectedCount}, playMusic=${playMusic}`);
-  closePickCountWindow();
+  const pickedStudents = pickStudentsByWeight(selectedCount);
+  closePickCountWindow({ keepFloatingHidden: true });
+  openPickResultWindow(pickedStudents);
+});
+
+ipcMain.handle('pick-result:get-results', () => {
+  return currentPickResults;
+});
+
+ipcMain.on('pick-result:close', () => {
+  closePickResultWindow();
 });
 
 ipcMain.on('floating-button:drag-start', (event, payload) => {
