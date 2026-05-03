@@ -1,5 +1,30 @@
 # 抽取名单列表
-studentList: []
+studentList:
+  - name: "白子"
+    weight: 1
+  - name: "星野"
+    weight: 1
+  - name: "芹香"
+    weight: 1
+  - name: "优香"
+    weight: 1
+  - name: "日富美"
+    weight: 1
+  - name: "日奈"
+    weight: 1
+  - name: "睦月"
+    weight: 1
+  - name: "佳代子"
+    weight: 1
+  - name: "伊织"
+    weight: 1
+  - name: "和纱"
+    weight: 1
+  - name: "梓"
+    weight: 1
+  - name: "美游"
+    weight: 1
+allowRepeatDraw: true
 
 # 悬浮按钮配置
 floatingButton:
@@ -11,7 +36,7 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1380
+    x: 1344
     y: 672
 
 # 人数选择窗口配置
@@ -22,6 +47,13 @@ pickCountDialog:
   backgroundDarknessPercent: 50
   # 人数默认值，范围 1-10 的整数，默认 1
   defaultCount: 1
+
+# 抽奖结果动画音效配置
+pickResultDialog:
+  # 是否默认播放抽奖音效（true/false），默认 true
+  defaultPlayGachaSound: true
+  # 抽奖音效音量（0.0-1.0），默认 0.6
+  gachaSoundVolume: 1
 
 # 网页配置服务
 webConfig:

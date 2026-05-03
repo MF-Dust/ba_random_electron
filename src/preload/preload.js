@@ -19,11 +19,19 @@ contextBridge.exposeInMainWorld('pickCountApi', {
     return () => {
       ipcRenderer.removeListener('pick-count:open', listener);
     };
+  },
+  onStopBgm: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('pick-count:stop-bgm', listener);
+    return () => {
+      ipcRenderer.removeListener('pick-count:stop-bgm', listener);
+    };
   }
 });
 
 contextBridge.exposeInMainWorld('pickResultApi', {
   getResults: () => ipcRenderer.invoke('pick-result:get-results'),
+  getConfig: () => ipcRenderer.invoke('pick-result:get-config'),
   close: () => ipcRenderer.send('pick-result:close'),
   onOpen: (callback) => {
     const listener = (_event, payload) => callback(payload);
@@ -32,4 +40,8 @@ contextBridge.exposeInMainWorld('pickResultApi', {
       ipcRenderer.removeListener('pick-result:open', listener);
     };
   }
+});
+
+contextBridge.exposeInMainWorld('logApi', {
+  send: (level, text) => ipcRenderer.send('renderer:log', { level, text })
 });

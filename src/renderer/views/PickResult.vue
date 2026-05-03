@@ -4,6 +4,20 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 const results = ref([])
 const animationKey = ref(0)
 const instructionText = ref('点击任意位置关闭')
+const revealStarted = ref(false)
+
+const resolveAssetUrl = (relativePath) => {
+  const base = window.location.protocol === 'file:'
+    ? new URL('.', window.location.href).toString()
+    : `${window.location.origin}/`
+  return new URL(relativePath.replace(/^\/+/, ''), base).toString()
+}
+const gachaSoundUrl = resolveAssetUrl('sound/gacha_loading.wav')
+let gachaAudio = null
+let revealTimer = null
+
+const playGachaSound = ref(true)
+const gachaSoundVolume = ref(0.6)
 
 const topRow = computed(() => results.value.slice(0, 5))
 const bottomRow = computed(() => results.value.slice(5))
@@ -25,30 +39,98 @@ function normalizeResults(payload) {
 function applyResults(payload) {
   results.value = normalizeResults(payload)
   animationKey.value += 1
+  revealStarted.value = false
+
+  if (revealTimer) {
+    clearTimeout(revealTimer)
+    revealTimer = null
+  }
+
+  if (results.value.length > 0) {
+    const totalDelayMs = (Math.max(results.value.length - 1, 0) * 120) + 600
+    revealTimer = setTimeout(() => {
+      revealStarted.value = true
+    }, totalDelayMs)
+  }
+
+  if (playGachaSound.value && results.value.length > 0) {
+    playGachaLoadingSound()
+  }
 }
 
 function closeResult() {
+  results.value = []
+  animationKey.value += 1
+  revealStarted.value = false
+  if (revealTimer) {
+    clearTimeout(revealTimer)
+    revealTimer = null
+  }
+  stopGachaLoadingSound()
   if (window.pickResultApi) {
     window.pickResultApi.close()
   }
 }
 
+function stopGachaLoadingSound() {
+  if (gachaAudio) {
+    gachaAudio.pause()
+    gachaAudio.currentTime = 0
+  }
+}
+
+async function playGachaLoadingSound() {
+  try {
+    stopGachaLoadingSound()
+    if (!gachaAudio) {
+      gachaAudio = new Audio(gachaSoundUrl)
+      gachaAudio.addEventListener('error', () => {
+        console.error('Gacha sound load failed', { src: gachaAudio.src, error: gachaAudio.error })
+      })
+    }
+    gachaAudio.volume = Math.max(0, Math.min(1, Number(gachaSoundVolume.value) || 0))
+    gachaAudio.currentTime = 0
+    await gachaAudio.play().catch((error) => {
+      console.warn('Gacha sound play blocked', error)
+    })
+  } catch (error) {
+    console.warn('Failed to play gacha loading sound:', error)
+  }
+}
+
+async function loadSoundConfig() {
+  if (!window.pickResultApi || typeof window.pickResultApi.getConfig !== 'function') {
+    return
+  }
+  const cfg = await window.pickResultApi.getConfig()
+  playGachaSound.value = Boolean(cfg?.defaultPlayGachaSound)
+  gachaSoundVolume.value = Number(cfg?.gachaSoundVolume)
+}
+
 let removeOpenListener = null
 
 onMounted(async () => {
+  await loadSoundConfig()
+
   if (window.pickResultApi && typeof window.pickResultApi.getResults === 'function') {
     const initial = await window.pickResultApi.getResults()
     applyResults({ results: initial })
   }
 
   if (window.pickResultApi && typeof window.pickResultApi.onOpen === 'function') {
-    removeOpenListener = window.pickResultApi.onOpen((payload) => {
+    removeOpenListener = window.pickResultApi.onOpen(async (payload) => {
+      await loadSoundConfig()
       applyResults(payload)
     })
   }
 })
 
 onBeforeUnmount(() => {
+  if (revealTimer) {
+    clearTimeout(revealTimer)
+    revealTimer = null
+  }
+  stopGachaLoadingSound()
   if (typeof removeOpenListener === 'function') {
     removeOpenListener()
   }
@@ -66,7 +148,7 @@ onBeforeUnmount(() => {
           :style="{ '--index': index }"
         >
           <img class="letter-img" src="/image/letter.png" alt="letter" />
-          <div class="name-card">
+          <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index }">
             <span>{{ item.name }}</span>
           </div>
         </div>
@@ -79,7 +161,7 @@ onBeforeUnmount(() => {
           :style="{ '--index': index + 5 }"
         >
           <img class="letter-img" src="/image/letter.png" alt="letter" />
-          <div class="name-card">
+          <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index + 5 }">
             <span>{{ item.name }}</span>
           </div>
         </div>
@@ -151,8 +233,12 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
   opacity: 0;
   transform: translateY(12px) scale(0.96);
+  animation: none;
+}
+
+.name-card.is-reveal {
   animation: name-reveal 0.45s ease-out forwards;
-  animation-delay: calc(var(--index) * 0.12s + 0.7s);
+  animation-delay: calc(var(--reveal-index) * 0.12s + 0.1s);
 }
 
 .result-hint {

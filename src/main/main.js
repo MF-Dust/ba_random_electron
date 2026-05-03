@@ -7,8 +7,12 @@ const { buildTrayContextMenu } = require('./tray-menu');
 
 const isDebugMode = !!process.env.VITE_DEV_SERVER_URL || process.argv.includes('-debug') || process.argv.includes('--debug');
 
+// Allow audio autoplay for packaged/start mode.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 const DEFAULT_CONFIG = {
   studentList: [],
+  allowRepeatDraw: true,
   floatingButton: {
     sizePercent: 100,
     transparencyPercent: 20,
@@ -22,6 +26,10 @@ const DEFAULT_CONFIG = {
     defaultPlayMusic: false,
     backgroundDarknessPercent: 50,
     defaultCount: 1
+  },
+  pickResultDialog: {
+    defaultPlayGachaSound: true,
+    gachaSoundVolume: 0.6
   },
   webConfig: {
     port: 21219
@@ -44,6 +52,59 @@ let isQuitting = false;
 let floatingWindowWatchdog = null;
 const FLOATING_WINDOW_FADE_MS = 400;
 
+const logBuffer = [];
+const logClients = new Set();
+const LOG_BUFFER_LIMIT = 600;
+
+function pushLog(level, text) {
+  const time = new Date().toISOString();
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    level,
+    text: String(text),
+    time
+  };
+  logBuffer.push(entry);
+  if (logBuffer.length > LOG_BUFFER_LIMIT) {
+    logBuffer.splice(0, logBuffer.length - LOG_BUFFER_LIMIT);
+  }
+
+  const payload = `data: ${JSON.stringify(entry)}\n\n`;
+  for (const res of logClients) {
+    res.write(payload);
+  }
+}
+
+['log', 'info', 'warn', 'error'].forEach((method) => {
+  const original = console[method].bind(console);
+  console[method] = (...args) => {
+    const text = args.map(arg => {
+      if (typeof arg === 'string') return arg;
+      try {
+        return JSON.stringify(arg);
+      } catch (_error) {
+        return String(arg);
+      }
+    }).join(' ');
+    pushLog(method === 'log' ? 'info' : method, text);
+    original(...args);
+  };
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+
+ipcMain.on('renderer:log', (_event, payload) => {
+  if (!payload || typeof payload.text !== 'string') return;
+  const level = typeof payload.level === 'string' ? payload.level : 'info';
+  pushLog(level, payload.text);
+});
+
 function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
@@ -59,8 +120,11 @@ function normalizeConfig(input) {
     return null;
   }).filter(s => s && s.name);
   const fb = source.floatingButton && typeof source.floatingButton === 'object' ? source.floatingButton : {};
+  const allowRepeatDraw =
+    typeof source.allowRepeatDraw === 'boolean' ? source.allowRepeatDraw : DEFAULT_CONFIG.allowRepeatDraw;
   const position = fb.position && typeof fb.position === 'object' ? fb.position : {};
   const pick = source.pickCountDialog && typeof source.pickCountDialog === 'object' ? source.pickCountDialog : {};
+  const pickResult = source.pickResultDialog && typeof source.pickResultDialog === 'object' ? source.pickResultDialog : {};
   const web = source.webConfig && typeof source.webConfig === 'object' ? source.webConfig : {};
 
   const alwaysOnTop =
@@ -68,6 +132,7 @@ function normalizeConfig(input) {
 
   return {
     studentList: students,
+    allowRepeatDraw,
     floatingButton: {
       sizePercent: clampNumber(
         fb.sizePercent,
@@ -105,6 +170,18 @@ function normalizeConfig(input) {
         )
       )
     },
+    pickResultDialog: {
+      defaultPlayGachaSound:
+        typeof pickResult.defaultPlayGachaSound === 'boolean'
+          ? pickResult.defaultPlayGachaSound
+          : DEFAULT_CONFIG.pickResultDialog.defaultPlayGachaSound,
+      gachaSoundVolume: clampNumber(
+        pickResult.gachaSoundVolume,
+        0,
+        1,
+        DEFAULT_CONFIG.pickResultDialog.gachaSoundVolume
+      )
+    },
     webConfig: {
       port: Math.round(clampNumber(web.port, 1, 65535, DEFAULT_CONFIG.webConfig.port))
     }
@@ -115,9 +192,15 @@ function getConfigPath() {
   return path.join(process.cwd(), 'config.yml');
 }
 
+function getLegacyConfigPath() {
+  // Legacy path used in packaged mode/userData.
+  return path.join(app.getPath('userData'), 'config.yml');
+}
+
 function toConfigYamlWithComments(config) {
   const fb = config.floatingButton;
   const pick = config.pickCountDialog;
+  const pickResult = config.pickResultDialog;
   const web = config.webConfig;
   const posX = Number.isFinite(Number(fb.position.x)) ? String(Math.round(Number(fb.position.x))) : 'null';
   const posY = Number.isFinite(Number(fb.position.y)) ? String(Math.round(Number(fb.position.y))) : 'null';
@@ -129,6 +212,7 @@ function toConfigYamlWithComments(config) {
   return [
     '# 抽取名单列表',
     `studentList:${studentLines}`,
+    `allowRepeatDraw: ${config.allowRepeatDraw ? 'true' : 'false'}`,
     '',
     '# 悬浮按钮配置',
     'floatingButton:',
@@ -152,6 +236,13 @@ function toConfigYamlWithComments(config) {
     '  # 人数默认值，范围 1-10 的整数，默认 1',
     `  defaultCount: ${pick.defaultCount}`,
     '',
+    '# 抽奖结果动画音效配置',
+    'pickResultDialog:',
+    '  # 是否默认播放抽奖音效（true/false），默认 true',
+    `  defaultPlayGachaSound: ${pickResult.defaultPlayGachaSound ? 'true' : 'false'}`,
+    '  # 抽奖音效音量（0.0-1.0），默认 0.6',
+    `  gachaSoundVolume: ${pickResult.gachaSoundVolume}`,
+    '',
     '# 网页配置服务',
     'webConfig:',
     '  # 配置网页端口（默认 21219）',
@@ -163,11 +254,18 @@ function toConfigYamlWithComments(config) {
 function saveConfig(config) {
   const configPath = getConfigPath();
   const yamlText = toConfigYamlWithComments(config);
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, yamlText, 'utf8');
 }
 
 function writeDefaultConfigIfMissing(configPath) {
   if (fs.existsSync(configPath)) {
+    return;
+  }
+  const legacyPath = getLegacyConfigPath();
+  if (legacyPath !== configPath && fs.existsSync(legacyPath)) {
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.copyFileSync(legacyPath, configPath);
     return;
   }
   saveConfig(DEFAULT_CONFIG);
@@ -210,15 +308,23 @@ function pickStudentsByWeight(count) {
     return [];
   }
 
-  const targetCount = Math.min(count, pool.length);
+  const targetCount = Math.max(0, count);
   const picked = [];
+  const allowRepeatDraw = Boolean(config.allowRepeatDraw);
+  const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
+
+  if (pool.length === 0) {
+    return picked;
+  }
 
   for (let i = 0; i < targetCount; i++) {
-    const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
     let pickIndex = -1;
+    const currentTotalWeight = allowRepeatDraw
+      ? totalWeight
+      : pool.reduce((sum, s) => sum + s.weight, 0);
 
-    if (totalWeight > 0) {
-      let roll = Math.random() * totalWeight;
+    if (currentTotalWeight > 0) {
+      let roll = Math.random() * currentTotalWeight;
       for (let j = 0; j < pool.length; j++) {
         roll -= pool[j].weight;
         if (roll <= 0) {
@@ -232,8 +338,12 @@ function pickStudentsByWeight(count) {
       pickIndex = Math.floor(Math.random() * pool.length);
     }
 
-    const chosen = pool.splice(pickIndex, 1)[0];
+    const chosen = allowRepeatDraw ? pool[pickIndex] : pool.splice(pickIndex, 1)[0];
     picked.push({ name: chosen.name });
+
+    if (!allowRepeatDraw && pool.length === 0) {
+      break;
+    }
   }
 
   return picked;
@@ -282,7 +392,7 @@ function parseRequestJsonBody(req) {
 
 function openConfigPageInBrowser() {
   const config = refreshConfig();
-  const url = `http://localhost:${config.webConfig.port}`;
+  const url = `http://localhost:${config.webConfig.port}/#/config`;
   shell.openExternal(url);
 }
 
@@ -293,6 +403,26 @@ function createConfigServerRequestHandler() {
 
     if (req.method === 'GET' && requestUrl === '/api/config') {
       return sendJson(res, 200, refreshConfig());
+    }
+
+    if (req.method === 'GET' && requestUrl === '/api/logs') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      res.write('\n');
+
+      logClients.add(res);
+      logBuffer.forEach((entry) => {
+        res.write(`data: ${JSON.stringify(entry)}\n\n`);
+      });
+
+      req.on('close', () => {
+        logClients.delete(res);
+      });
+      return;
     }
 
     if (req.method === 'POST' && requestUrl === '/api/config') {
@@ -394,10 +524,12 @@ function persistFloatingButtonPosition() {
     return;
   }
 
+  const baseConfig = refreshConfig();
   const bounds = floatingButtonWindow.getBounds();
   currentConfig = normalizeConfig({
+    ...baseConfig,
     floatingButton: {
-      ...currentConfig.floatingButton,
+      ...baseConfig.floatingButton,
       position: {
         x: bounds.x,
         y: bounds.y
@@ -497,13 +629,14 @@ function createFloatingButtonWindow() {
     hasShadow: false,
     transparent: true,
     alwaysOnTop: config.floatingButton.alwaysOnTop,
-    skipTaskbar: true,
-    type: 'toolbar', // 防止被托盘或系统当作普通窗口隐藏
-    focusable: process.platform !== 'win32', // Windows下设为false以防焦点抢夺导致的隐藏Bug，但仍能接收点击
+    skipTaskbar: !isDebugMode,
+    type: isDebugMode ? undefined : 'toolbar', // 防止被托盘或系统当作普通窗口隐藏
+    focusable: isDebugMode ? true : process.platform !== 'win32', // Windows下设为false以防焦点抢夺导致的隐藏Bug，但仍能接收点击
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      autoplayPolicy: 'no-user-gesture-required'
     }
   };
 
@@ -635,11 +768,12 @@ function createPickCountWindowInstance() {
     maximizable: false,
     movable: false,
     alwaysOnTop: true,
-    skipTaskbar: true,
+    skipTaskbar: !isDebugMode,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      autoplayPolicy: 'no-user-gesture-required'
     }
   });
 
@@ -698,8 +832,12 @@ function createPickCountWindow() {
 
 function closePickResultWindow() {
   if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+    currentPickResults = [];
     isFloatingHiddenForPickCount = false;
     fadeInFloatingButtonWindow();
+    if (pickCountWindow && !pickCountWindow.isDestroyed()) {
+      pickCountWindow.webContents.send('pick-count:stop-bgm');
+    }
     return;
   }
 
@@ -707,8 +845,12 @@ function closePickResultWindow() {
     pickResultWindow.hide();
   }
 
+  currentPickResults = [];
   isFloatingHiddenForPickCount = false;
   fadeInFloatingButtonWindow();
+  if (pickCountWindow && !pickCountWindow.isDestroyed()) {
+    pickCountWindow.webContents.send('pick-count:stop-bgm');
+  }
 }
 
 function createPickResultWindowInstance() {
@@ -726,12 +868,13 @@ function createPickResultWindowInstance() {
     maximizable: false,
     movable: false,
     alwaysOnTop: true,
-    skipTaskbar: true,
+    skipTaskbar: !isDebugMode,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      autoplayPolicy: 'no-user-gesture-required'
     }
   });
 
@@ -756,6 +899,7 @@ function createPickResultWindowInstance() {
   win.on('closed', () => {
     pickResultWindow = null;
     isPickResultWindowReady = false;
+    currentPickResults = [];
     if (!isQuitting) {
       isFloatingHiddenForPickCount = false;
       fadeInFloatingButtonWindow();
@@ -827,6 +971,9 @@ ipcMain.handle('pick-count:get-config', () => {
 
 ipcMain.on('pick-count:cancel', () => {
   closePickCountWindow();
+  if (pickCountWindow && !pickCountWindow.isDestroyed()) {
+    pickCountWindow.webContents.send('pick-count:stop-bgm');
+  }
 });
 
 ipcMain.on('pick-count:confirm', (event, payload) => {
@@ -834,12 +981,19 @@ ipcMain.on('pick-count:confirm', (event, payload) => {
   const playMusic = Boolean(payload && payload.playMusic);
   console.log(`Pick count confirmed. count=${selectedCount}, playMusic=${playMusic}`);
   const pickedStudents = pickStudentsByWeight(selectedCount);
+  if (pickedStudents.length > 0) {
+    console.log(`Picked students: ${pickedStudents.map(s => s.name).join(', ')}`);
+  }
   closePickCountWindow({ keepFloatingHidden: true });
   openPickResultWindow(pickedStudents);
 });
 
 ipcMain.handle('pick-result:get-results', () => {
   return currentPickResults;
+});
+
+ipcMain.handle('pick-result:get-config', () => {
+  return refreshConfig().pickResultDialog;
 });
 
 ipcMain.on('pick-result:close', () => {
@@ -892,6 +1046,7 @@ app.whenReady().then(() => {
   createTray();
   createFloatingButtonWindow();
   createPickCountWindowInstance();
+  createPickResultWindowInstance();
   startFloatingWindowWatchdog();
 
   app.on('activate', () => {

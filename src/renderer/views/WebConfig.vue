@@ -1,47 +1,52 @@
 <template>
   <main class="page">
-    <section class="panel">
-      <div class="header">
-        <h1>BA-Random Web配置页</h1>
-        <p class="hint">老师可以在这里配置BA-Random的各项功能哦！</p>
-      </div>
+    <div class="layout">
+      <section class="panel panel-left">
+        <div class="header">
+          <h1>BA-Random Web配置页</h1>
+          <p class="hint">老师可以在这里配置BA-Random的各项功能哦！</p>
+        </div>
 
       <div class="tabs">
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'list' }" @click="switchTab('list')">花名册导入</button>
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'students' }" @click="switchTab('students')">花名册管理</button>
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'floating' }" @click="switchTab('floating')">抽取悬浮按钮</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'pickCount' }" @click="switchTab('pickCount')">抽取人数选择窗口</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'web' }" @click="switchTab('web')">Web配置网络服务</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'pickCount' }" @click="switchTab('pickCount')">抽取动画</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'web' }" @click="switchTab('web')">Web配置服务</button>
       </div>
 
-      <form id="config-form" @submit.prevent="saveConfig">
-        <div class="tab-container">
-          <transition :name="transitionName" mode="out-in">
-            <div class="tab-content" v-if="activeTab === 'list'" key="list">
-              <div class="list-manager">
-                <p class="desc">老师可以手动输入名单（每行一个），或者点击下方按钮导入CSV/TXT文件自动解析！</p>
-                <div class="list-actions">
-                  <label class="upload-btn">
-                    <span>📂 导入文件</span>
-                    <input type="file" accept=".txt,.csv" @change="handleFileUpload" style="display: none;" />
-                  </label>
-                  <span class="count-badge">当前导入人数：{{ config.studentList.length }}</span>
-                </div>
-                <textarea 
-                  v-model="rawListText" 
-                  class="list-textarea" 
-                  placeholder="请输入名单，每行一个。例如：
+        <form id="config-form" @submit.prevent="saveConfig">
+          <div class="tab-container">
+            <transition :name="transitionName" mode="out-in">
+              <div class="tab-content" v-if="activeTab === 'list'" key="list">
+                <div class="list-manager">
+                  <p class="desc">老师可以手动输入名单（每行一个），或者点击下方按钮导入CSV/TXT文件自动解析！</p>
+                  <div class="list-actions">
+                    <label class="upload-btn">
+                      <span>📂 导入文件</span>
+                      <input type="file" accept=".txt,.csv" @change="handleFileUpload" style="display: none;" />
+                    </label>
+                    <span class="count-badge">当前导入人数：{{ config.studentList.length }}</span>
+                  </div>
+                  <textarea 
+                    v-model="rawListText" 
+                    class="list-textarea" 
+                    placeholder="请输入名单，每行一个。例如：
 早濑优香
 小鸟游星野
 空崎日奈"
-                  @input="syncTextToList"
-                ></textarea>
+                    @input="syncTextToList"
+                  ></textarea>
+                </div>
               </div>
-            </div>
 
             <div class="tab-content" v-else-if="activeTab === 'students'" key="students">
               <div class="student-manager">
                 <p class="desc">老师可以在这里管理当前名单中人员及抽取权重，默认权重为1.0。权重越高，被抽取到的概率越大!</p>
+                <label class="inline">
+                  <input type="checkbox" v-model="config.allowRepeatDraw" />
+                  是否允许重复抽取（加权真随机）
+                </label>
                 <div class="student-list table-wrapper">
                   <div v-if="config.studentList.length === 0" class="empty-tips-text">暂时没有名单哦~请先在“名单导入”中输入。</div>
                   <div v-if="config.studentList.length === 0" class="empty-tips-arona">
@@ -114,7 +119,15 @@
             <div class="tab-content" v-else-if="activeTab === 'pickCount'" key="pickCount">
               <label class="inline">
                 <input type="checkbox" v-model="config.pickCountDialog.defaultPlayMusic" />
-                默认播放背景音乐（注意！教学环境下可能并不适宜）
+                是否默认播放抽取背景音乐（注意！教学环境下可能并不适宜）
+              </label>
+              <label class="inline">
+                <input type="checkbox" v-model="config.pickResultDialog.defaultPlayGachaSound" />
+                抽取动画默认播放抽取音效（注意！教学环境下可能并不适宜）
+              </label>
+              <label>
+                抽取音效响度（0.0 - 1.0）
+                <input type="number" v-model.number="config.pickResultDialog.gachaSoundVolume" min="0" max="1" step="0.05" required />
               </label>
               <label>
                 背景变暗程度，百分数值（0-100）
@@ -127,18 +140,33 @@
             </div>
 
             <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
-              <p class="desc">在此修改BA-Random——Electron的网络相关配置，应用冷重启后生效。通常情况下老师不需要配置这里的选项</p>
+              <p class="desc">在此修改BA-Random-Electron的网络相关配置，应用冷重启后生效。通常情况下老师不需要配置这里的选项</p>
               <label>
                 Web配置界面的端口（1-65535）
                 <input type="number" v-model.number="config.webConfig.port" min="1" max="65535" required />
               </label>
             </div>
-          </transition>
-        </div>
+            </transition>
+          </div>
 
-        <button type="submit" class="save-btn">保存配置</button>
-      </form>
-    </section>
+          <button type="submit" class="save-btn">保存配置</button>
+        </form>
+      </section>
+
+      <aside class="panel panel-right">
+        <div class="log-header">
+          <h2>运行日志</h2>
+          <span class="log-subtitle">程序运行实时输出</span>
+        </div>
+        <div class="log-list" role="log" aria-live="polite">
+          <div v-if="logs.length === 0" class="log-empty">暂无日志</div>
+          <div v-for="item in logs" :key="item.id" class="log-item" :class="`log-${item.level}`">
+            <span class="log-time">{{ item.time }}</span>
+            <span class="log-text">{{ item.text }}</span>
+          </div>
+        </div>
+      </aside>
+    </div>
   </main>
 </template>
 
@@ -159,8 +187,39 @@ const switchTab = (tab) => {
 
 const apiBase = '/api'
 
+const logs = ref([])
+let logSeed = 0
+let logSource = null
+
+const addLog = (level, text, timeOverride) => {
+  const time = timeOverride || new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  logs.value.unshift({ id: `${Date.now()}-${logSeed++}`, level, text, time })
+  if (logs.value.length > 200) {
+    logs.value.length = 200
+  }
+}
+
+const startLogStream = () => {
+  if (logSource) {
+    logSource.close()
+  }
+
+  logSource = new EventSource(`${apiBase}/logs`)
+  logSource.onmessage = (event) => {
+    try {
+      const entry = JSON.parse(event.data)
+      const time = entry.time
+        ? new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })
+        : undefined
+      addLog(entry.level || 'info', entry.text || '', time)
+    } catch (_error) {}
+  }
+  logSource.onerror = () => {}
+}
+
 const config = ref({
   studentList: [],
+  allowRepeatDraw: true,
   floatingButton: {
     sizePercent: 100,
     transparencyPercent: 100,
@@ -174,6 +233,10 @@ const config = ref({
     defaultPlayMusic: true,
     backgroundDarknessPercent: 50,
     defaultCount: 1
+  },
+  pickResultDialog: {
+    defaultPlayGachaSound: true,
+    gachaSoundVolume: 0.6
   },
   webConfig: {
     port: 21219
@@ -241,8 +304,10 @@ const fetchConfig = async () => {
     const response = await axios.get(`${apiBase}/config`)
     config.value = response.data
     rawListText.value = (config.value.studentList || []).map(s => s.name).join('\n')
+    addLog('info', '配置已加载')
   } catch (error) {
     console.error('加载配置失败:', error)
+    addLog('error', '加载配置失败，请检查服务是否启动')
     window.alert('配置页面初始化失败。')
   }
 }
@@ -252,6 +317,7 @@ const saveConfig = async () => {
     syncTextToList()
     const payload = {
       studentList: config.value.studentList,
+      allowRepeatDraw: Boolean(config.value.allowRepeatDraw),
       floatingButton: {
         sizePercent: Number(config.value.floatingButton.sizePercent),
         transparencyPercent: Number(config.value.floatingButton.transparencyPercent),
@@ -266,22 +332,28 @@ const saveConfig = async () => {
         backgroundDarknessPercent: Number(config.value.pickCountDialog.backgroundDarknessPercent),
         defaultCount: Number(config.value.pickCountDialog.defaultCount)
       },
+      pickResultDialog: {
+        defaultPlayGachaSound: Boolean(config.value.pickResultDialog.defaultPlayGachaSound),
+        gachaSoundVolume: Number(config.value.pickResultDialog.gachaSoundVolume)
+      },
       webConfig: {
         port: Number(config.value.webConfig.port)
       }
     }
 
     await axios.post(`${apiBase}/config`, payload)
-
+    addLog('success', '配置已保存并生效')
     window.alert('配置已保存并生效。')
   } catch (error) {
     console.error('保存配置失败:', error)
+    addLog('error', '保存失败，请检查输入内容')
     window.alert('保存失败，请检查输入内容。')
   }
 }
 
 onMounted(() => {
   fetchConfig()
+  startLogStream()
 })
 </script>
 
@@ -292,64 +364,91 @@ onMounted(() => {
 
 .page {
   min-height: 100vh;
-  padding: 24px;
+  padding: 28px;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
-  background:#c1e6ff;
-  color: #133053;
+  justify-content: stretch;
+  font-family: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(148, 199, 255, 0.28), transparent 60%),
+    radial-gradient(900px 600px at 80% 0%, rgba(167, 222, 255, 0.22), transparent 55%),
+    #eef3fb;
+  color: #0f1f3b;
+}
+
+.layout {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 20px;
 }
 
 .panel {
-  width: min(760px, 96vw);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
-  box-shadow: 0 20px 40px rgba(12, 36, 68, 0.22);
-  padding: 24px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.88));
+  border: 1px solid rgba(142, 175, 210, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 18px 38px rgba(12, 28, 59, 0.12);
+  padding: 22px 24px;
+  backdrop-filter: blur(18px);
+}
+
+.panel-left {
+  min-height: 720px;
+}
+
+.panel-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 720px;
 }
 
 h1 {
   margin: 0;
   font-size: 30px;
   letter-spacing: 1px;
-  text-align: center;
+  text-align: left;
+}
+.header {
+  text-align: left;
 }
 
 .hint {
   margin-top: 8px;
   color: #355985;
-  text-align: center;
+  text-align: left;
 }
 
 .tabs {
   display: flex;
-  margin: 24px 0 20px;
-  border-bottom: 2px solid #aac2e0;
+  margin: 20px 0 18px;
+  border-bottom: 1px solid rgba(120, 148, 185, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 6px;
 }
 
 .tab-btn {
   flex: 1;
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  color: #355985;
-  padding: 12px 0;
+  color: #3a4c6b;
+  padding: 10px 0;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
+  border-radius: 10px;
 }
 
 .tab-btn:hover {
-  background: rgba(170, 194, 224, 0.2);
+  background: rgba(220, 232, 249, 0.7);
 }
 
 .tab-btn.active {
-  color: #133053;
-  border-bottom-color: #2c69b2;
+  color: #ffffff;
+  background: rgba(7, 105, 241, 0.92);
+  box-shadow: 0 8px 18px rgba(16, 32, 59, 0.12);
 }
 
 .tab-content {
@@ -406,18 +505,20 @@ h1 {
   width: 100%;
   height: 200px;
   min-height: 120px;
-  border: 1px solid #aac2e0;
-  border-radius: 10px;
+  border: 1px solid rgba(127, 157, 193, 0.55);
+  border-radius: 12px;
   padding: 12px;
   font-size: 15px;
   resize: vertical;
   line-height: 1.6;
   font-family: inherit;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .list-textarea:focus {
   outline: none;
-  border-color: #2c69b2;
+  border-color: #5a89c8;
+  box-shadow: 0 0 0 3px rgba(90, 137, 200, 0.2);
 }
 
 label {
@@ -435,10 +536,11 @@ label {
 input[type="number"] {
   width: 100%;
   margin-top: 6px;
-  border: 1px solid #aac2e0;
-  border-radius: 10px;
+  border: 1px solid rgba(127, 157, 193, 0.55);
+  border-radius: 12px;
   padding: 10px 12px;
   font-size: 15px;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 input[type="checkbox"] {
@@ -458,11 +560,16 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 12px;
   padding: 13px 14px;
-  color: #000000;
-  font-size: 17px;
+  color: #0f1f3b;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  background: #eae72192;
+  background: linear-gradient(135deg, #f1f601, #f3b703);
+  box-shadow: 0 10px 20px rgba(32, 63, 115, 0.2);
+}
+
+.save-btn:hover {
+  background: linear-gradient(135deg, #bdd6ff, #eef3ff);
 }
 
 .student-manager {
@@ -569,6 +676,76 @@ input[type="checkbox"] {
 .student-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.log-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.log-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.log-subtitle {
+  font-size: 13px;
+  color: #5a6f8f;
+}
+
+.log-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
+  overflow: auto;
+}
+
+.log-item {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(164, 186, 216, 0.4);
+  box-shadow: 0 8px 18px rgba(18, 36, 69, 0.08);
+  font-size: 13px;
+}
+
+.log-item.log-success {
+  border-color: rgba(102, 175, 126, 0.6);
+  background: rgba(227, 245, 233, 0.8);
+}
+
+.log-item.log-error {
+  border-color: rgba(214, 110, 110, 0.55);
+  background: rgba(255, 231, 231, 0.85);
+}
+
+.log-item.log-info {
+  border-color: rgba(124, 160, 206, 0.55);
+}
+
+.log-time {
+  font-variant-numeric: tabular-nums;
+  color: #6b7d99;
+}
+
+.log-text {
+  color: #1f2a44;
+}
+
+.log-empty {
+  padding: 12px;
+  color: #7b8da8;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(151, 177, 210, 0.5);
+  border-radius: 12px;
 }
 
 /* 滑动切换动画 */

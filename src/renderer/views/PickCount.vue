@@ -1,8 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
-const bgmUrl = '/sound/bgm.mp3'
-const clickSoundUrl = '/sound/button_click.wav'
+const resolveAssetUrl = (relativePath) => {
+  const base = window.location.protocol === 'file:'
+    ? new URL('.', window.location.href).toString()
+    : `${window.location.origin}/`
+  return new URL(relativePath.replace(/^\/+/, ''), base).toString()
+}
+const bgmUrl = resolveAssetUrl('sound/bgm.mp3')
+const clickSoundUrl = resolveAssetUrl('sound/button_click.wav')
 
 function clampInt(value, min, max, fallback) {
   const n = Number(value)
@@ -20,18 +26,16 @@ const BGM_GAIN = 0.3
 const CLICK_SOUND_GAIN = 1
 const EXIT_ANIMATION_MS = 400
 
-const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-const bgmBufferPromise = fetch(bgmUrl)
-  .then((response) => response.arrayBuffer())
-  .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer.slice(0)))
-const clickBufferPromise = fetch(clickSoundUrl)
-  .then((response) => response.arrayBuffer())
-  .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer.slice(0)))
-
 let removeOnOpenListener = null
-let bgmSource = null
-let bgmGainNode = null
-  let bgmPlayId = 0
+let removeStopListener = null
+let bgmAudio = null
+let clickAudio = null
+
+const attachAudioDebug = (audio, label) => {
+  audio.addEventListener('error', () => {
+    console.error(`${label} load failed`, { src: audio.src, error: audio.error })
+  })
+}
 const canIncrease = computed(() => count.value < 10)
 
 const overlayStyle = computed(() => {
@@ -51,8 +55,8 @@ async function initConfig() {
   playMusic.value = Boolean(cfg.defaultPlayMusic)
   backgroundDarknessPercent.value = clampInt(cfg.backgroundDarknessPercent, 0, 100, 50)
 
-  if (bgmGainNode) {
-    bgmGainNode.gain.value = BGM_GAIN
+  if (bgmAudio) {
+    bgmAudio.volume = BGM_GAIN
   }
 }
 
@@ -71,49 +75,23 @@ function decreaseCount() {
 }
 
 function stopAudio() {
-  bgmPlayId++ // 增加播放标识，阻断在此之前发起的但是尚未完成加载的异步播放动作
-  
-  if (bgmSource) {
-    try {
-      bgmSource.stop(0)
-    } catch (_error) {}
-    bgmSource.disconnect()
-    bgmSource = null
-  }
-
-  if (bgmGainNode) {
-    bgmGainNode.disconnect()
-    bgmGainNode = null
+  if (bgmAudio) {
+    bgmAudio.pause()
+    bgmAudio.currentTime = 0
   }
 }
 
 async function playBgm() {
-  stopAudio()
-  
-  const currentPlayId = bgmPlayId
-  const buffer = await bgmBufferPromise
-  
-  if (currentPlayId !== bgmPlayId) {
-    return
+  if (!bgmAudio) {
+    bgmAudio = new Audio(bgmUrl)
+    bgmAudio.loop = true
+    attachAudioDebug(bgmAudio, 'BGM')
   }
-
-  if (audioContext.state === 'suspended') {
-    await audioContext.resume()
-  }
-
-  const source = audioContext.createBufferSource()
-  source.buffer = buffer
-  source.loop = true
-
-  const gainNode = audioContext.createGain()
-  gainNode.gain.value = BGM_GAIN
-
-  source.connect(gainNode)
-  gainNode.connect(audioContext.destination)
-  source.start(0)
-
-  bgmSource = source
-  bgmGainNode = gainNode
+  bgmAudio.volume = BGM_GAIN
+  bgmAudio.currentTime = 0
+  await bgmAudio.play().catch((error) => {
+    console.warn('BGM play blocked', error)
+  })
 }
 
 async function resetDialogStateFromConfig() {
@@ -131,23 +109,15 @@ async function resetDialogStateFromConfig() {
 }
 
 function playClickSound() {
-  clickBufferPromise
-    .then(async (buffer) => {
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-      }
-
-      const source = audioContext.createBufferSource()
-      source.buffer = buffer
-
-      const gainNode = audioContext.createGain()
-      gainNode.gain.value = CLICK_SOUND_GAIN
-
-      source.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      source.start(0)
-    })
-    .catch(() => {})
+  if (!clickAudio) {
+    clickAudio = new Audio(clickSoundUrl)
+    attachAudioDebug(clickAudio, 'Click sound')
+  }
+  clickAudio.volume = CLICK_SOUND_GAIN
+  clickAudio.currentTime = 0
+  clickAudio.play().catch((error) => {
+    console.warn('Click sound play blocked', error)
+  })
 }
 
 function beginExit(action) {
@@ -158,7 +128,9 @@ function beginExit(action) {
   isLeaving.value = true
   playClickSound()
   window.setTimeout(() => {
-    stopAudio()
+    if (action !== 'confirm') {
+      stopAudio()
+    }
     if (!window.pickCountApi) {
       return
     }
@@ -199,12 +171,21 @@ onMounted(async () => {
       await resetDialogStateFromConfig()
     })
   }
+
+  if (window.pickCountApi && typeof window.pickCountApi.onStopBgm === 'function') {
+    removeStopListener = window.pickCountApi.onStopBgm(() => {
+      stopAudio()
+    })
+  }
 })
 
 onBeforeUnmount(() => {
   stopAudio()
   if (typeof removeOnOpenListener === 'function') {
     removeOnOpenListener()
+  }
+  if (typeof removeStopListener === 'function') {
+    removeStopListener()
   }
 })
 </script>
