@@ -1,11 +1,21 @@
-name: Build Windows Installer
+name: Build Windows Package
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag (e.g. v1.2.3)
+        required: true
+      release_name:
+        description: Release name (optional)
+        required: false
   push:
     branches:
       - main
       - master
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -32,9 +42,27 @@ jobs:
           ELECTRON_CACHE: C:\\Users\\runneradmin\\AppData\\Local\\electron\\Cache
         run: npm run build
 
-      - name: Upload installer
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: setup-exe
-          path: dist\*.exe
+          name: windows-zip
+          path: dist\*.zip
           if-no-files-found: error
+
+      - name: Publish preview release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: preview-${{ github.run_number }}
+          name: Preview ${{ github.run_number }}
+          prerelease: true
+          files: dist/*.zip
+
+      - name: Publish release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name }}
+          prerelease: false
+          files: dist/*.zip

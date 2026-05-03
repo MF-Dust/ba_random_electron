@@ -21,6 +21,8 @@ const count = ref(1)
 const playMusic = ref(false)
 const isLeaving = ref(false)
 const backgroundDarknessPercent = ref(50)
+const isDialogOpen = ref(false)
+const isInitializing = ref(false)
 
 const BGM_GAIN = 0.3
 const CLICK_SOUND_GAIN = 1
@@ -48,6 +50,7 @@ const overlayStyle = computed(() => {
 })
 
 async function initConfig() {
+  isInitializing.value = true
   if (!window.pickCountApi) return
   const cfg = await window.pickCountApi.getConfig()
 
@@ -58,6 +61,7 @@ async function initConfig() {
   if (bgmAudio) {
     bgmAudio.volume = BGM_GAIN
   }
+  isInitializing.value = false
 }
 
 function increaseCount() {
@@ -94,12 +98,12 @@ async function playBgm() {
   })
 }
 
-async function resetDialogStateFromConfig() {
+async function resetDialogStateFromConfig(shouldPlayBgm) {
   isLeaving.value = false
   stopAudio()
   await initConfig()
 
-  if (playMusic.value) {
+  if (shouldPlayBgm && playMusic.value) {
     try {
       await playBgm()
     } catch (error) {
@@ -126,6 +130,7 @@ function beginExit(action) {
   }
 
   isLeaving.value = true
+  isDialogOpen.value = false
   playClickSound()
   window.setTimeout(() => {
     if (action !== 'confirm') {
@@ -152,6 +157,9 @@ function handleConfirm() {
 }
 
 watch(playMusic, async (enabled) => {
+  if (!isDialogOpen.value || isInitializing.value) {
+    return
+  }
   if (enabled) {
     try {
       await playBgm()
@@ -164,11 +172,15 @@ watch(playMusic, async (enabled) => {
 })
 
 onMounted(async () => {
-  await resetDialogStateFromConfig()
+  isLeaving.value = false
+  isDialogOpen.value = false
+  stopAudio()
+  await initConfig()
 
   if (window.pickCountApi && typeof window.pickCountApi.onOpen === 'function') {
     removeOnOpenListener = window.pickCountApi.onOpen(async () => {
-      await resetDialogStateFromConfig()
+      isDialogOpen.value = true
+      await resetDialogStateFromConfig(true)
     })
   }
 

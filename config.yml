@@ -36,13 +36,13 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1344
-    y: 672
+    x: 1404
+    y: 684
 
 # 人数选择窗口配置
 pickCountDialog:
   # 是否默认播放喜庆点名音乐（true/false），默认 false
-  defaultPlayMusic: false
+  defaultPlayMusic: true
   # 背景变暗程度，范围 0-100（100 接近全黑），默认 50
   backgroundDarknessPercent: 50
   # 人数默认值，范围 1-10 的整数，默认 1

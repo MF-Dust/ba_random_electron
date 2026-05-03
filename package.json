@@ -1,11 +1,11 @@
 {
   "name": "ba-random-electron",
-  "version": "0.1.0",
-  "description": "仿制BA抽卡的随机点名器，基于Electron和Vue3开发",
-  "author": "YunHydrogen",
+  "version": "1.1.0",
+  "description": "仿蔚蓝档案的随机点名工具-Electron",
+  "author": "HydrogenRua",
   "main": "dist-electron/main.js",
   "build": {
-    "appId": "com.yunhydrogen.ba-random",
+    "appId": "com.hydrogenrua.ba-random",
     "productName": "BA Random",
     "files": [
       "dist/**/*",
@@ -13,20 +13,8 @@
       "public/**/*"
     ],
     "win": {
-      "target": "nsis",
+      "target": "zip",
       "icon": "public/image/app.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "BA Random",
-      "installerIcon": "public/image/app.ico",
-      "uninstallerIcon": "public/image/app.ico",
-      "uninstallDisplayName": "BA Random",
-      "artifactName": "BA-Random-Setup-${version}.${ext}"
     }
   },
   "scripts": {
