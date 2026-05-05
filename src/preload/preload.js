@@ -45,3 +45,4 @@ contextBridge.exposeInMainWorld('pickResultApi', {
 contextBridge.exposeInMainWorld('logApi', {
   send: (level, text) => ipcRenderer.send('renderer:log', { level, text })
 });
+

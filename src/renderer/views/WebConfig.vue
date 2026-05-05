@@ -12,7 +12,7 @@
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'students' }" @click="switchTab('students')">花名册管理</button>
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'floating' }" @click="switchTab('floating')">抽取悬浮按钮</button>
         <button type="button" class="tab-btn" :class="{ active: activeTab === 'pickCount' }" @click="switchTab('pickCount')">抽取动画</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'web' }" @click="switchTab('web')">Web配置服务</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'web' }" @click="switchTab('web')">系统服务</button>
       </div>
 
         <form id="config-form" @submit.prevent="saveConfig">
@@ -140,11 +140,26 @@
             </div>
 
             <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
-              <p class="desc">在此修改BA-Random-Electron的网络相关配置，应用冷重启后生效。通常情况下老师不需要配置这里的选项</p>
+              <p class="desc">老师注意！这些配置涉及程序基本运行。正常情况下，老师是不需要调整这里的配置的哦~</p>
               <label>
                 Web配置界面的端口（1-65535）
                 <input type="number" v-model.number="config.webConfig.port" min="1" max="65535" required />
               </label>
+
+              <p class="update-header">检查应用程序更新</p>
+              <div class="update-card">
+                <div class="update-row">
+                  <button type="button" class="update-btn" :disabled="updateState.loading" @click="checkUpdate">
+                    {{ updateState.loading ? '检查中...' : '检查更新' }}
+                  </button>
+                  <span class="update-status" :class="`status-${updateState.status}`">{{ updateState.title }}</span>
+                </div>
+                <p v-if="updateState.detail" class="update-detail">{{ updateState.detail }}</p>
+                <div v-if="updateState.commitUrl || updateState.releaseUrl" class="update-links">
+                  <a v-if="updateState.commitUrl" :href="updateState.commitUrl" target="_blank" rel="noopener">查看提交</a>
+                  <a v-if="updateState.releaseUrl" :href="updateState.releaseUrl" target="_blank" rel="noopener">查看发布页</a>
+                </div>
+              </div>
             </div>
             </transition>
           </div>
@@ -155,8 +170,11 @@
 
       <aside class="panel panel-right">
         <div class="log-header">
-          <h2>运行日志</h2>
-          <span class="log-subtitle">程序运行实时输出</span>
+          <div class="log-title-row">
+            <h2>运行日志</h2>
+            <span v-if="isDebugMode" class="debug-badge">调试模式</span>
+            <span class="version-badge">版本 {{ appVersion }}</span>
+          </div>
         </div>
         <div class="log-list" role="log" aria-live="polite">
           <div v-if="logs.length === 0" class="log-empty">暂无日志</div>
@@ -186,8 +204,80 @@ const switchTab = (tab) => {
 }
 
 const apiBase = '/api'
+const releasePageUrl = 'https://github.com/Yun-Hydrogen/ba_random_electron/releases/latest'
 
 const logs = ref([])
+const isDebugMode = ref(false)
+const appVersion = ref('0.0.0')
+const updateState = ref({
+  loading: false,
+  status: 'idle',
+  title: '尚未检查更新',
+  detail: '',
+  commitUrl: '',
+  releaseUrl: ''
+})
+
+
+const checkUpdate = async () => {
+  addLog('info', '开始检查更新...')
+  updateState.value = {
+    loading: true,
+    status: 'loading',
+    title: '正在检查更新...',
+    detail: '',
+    commitUrl: '',
+    releaseUrl: ''
+  }
+
+  try {
+    const response = await axios.get(`${apiBase}/check-update`)
+    const result = response.data
+    if (result && Array.isArray(result.debug)) {
+      result.debug.forEach((line) => addLog('info', `更新调试: ${line}`))
+    }
+
+    updateState.value = {
+      loading: false,
+      status: result.status || 'error',
+      title: result.title || '检查更新失败',
+      detail: result.detail || '请检查网络或稍后再试。',
+      commitUrl: result.commitUrl || '',
+      releaseUrl: result.releaseUrl || releasePageUrl
+    }
+    if (result.status === 'update') {
+      addLog('success', '发现新版本')
+    } else if (result.status === 'ok') {
+      addLog('success', '已是最新版本')
+    } else if (result.status === 'easter') {
+      addLog('info', '本地版本高于远端版本')
+    } else {
+      addLog('error', result.detail || '检查更新失败')
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+    const status = error && error.response ? `${error.response.status} ${error.response.statusText}` : '未知错误'
+    const url = error && error.config && error.config.url ? error.config.url : ''
+    const code = error && error.code ? String(error.code) : ''
+    const message = error && error.message ? String(error.message) : ''
+    const axiosFlag = error && error.isAxiosError ? 'axios' : ''
+    addLog(
+      'error',
+      `检查更新失败: ${status}${code ? ` | code=${code}` : ''}${message ? ` | ${message}` : ''}${axiosFlag ? ` | ${axiosFlag}` : ''}${url ? ` | ${url}` : ''}`
+    )
+    if (!error || !error.response) {
+      addLog('warn', '没有拿到响应对象，可能是网络/跨域/被拦截')
+    }
+    updateState.value = {
+      loading: false,
+      status: 'error',
+      title: '检查更新失败',
+      detail: '请检查网络或稍后再试。',
+      commitUrl: '',
+      releaseUrl: releasePageUrl
+    }
+  }
+}
 let logSeed = 0
 let logSource = null
 
@@ -312,6 +402,17 @@ const fetchConfig = async () => {
   }
 }
 
+const fetchAppInfo = async () => {
+  try {
+    const response = await axios.get(`${apiBase}/app-info`)
+    isDebugMode.value = Boolean(response.data && response.data.isDebugMode)
+    appVersion.value = response.data && response.data.version ? response.data.version : '0.0.0'
+  } catch (_error) {
+    isDebugMode.value = false
+    appVersion.value = '0.0.0'
+  }
+}
+
 const saveConfig = async () => {
   try {
     syncTextToList()
@@ -354,6 +455,7 @@ const saveConfig = async () => {
 onMounted(() => {
   fetchConfig()
   startLogStream()
+  fetchAppInfo()
 })
 </script>
 
@@ -379,7 +481,7 @@ onMounted(() => {
 .layout {
   width: 100%;
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 20px;
 }
 
@@ -400,6 +502,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 720px;
+  max-height: calc(100vh - 56px);
 }
 
 h1 {
@@ -566,10 +669,94 @@ input[type="checkbox"] {
   cursor: pointer;
   background: linear-gradient(135deg, #f1f601, #f3b703);
   box-shadow: 0 10px 20px rgba(32, 63, 115, 0.2);
+  transition: background 0.2s ease;
+  
 }
 
 .save-btn:hover {
   background: linear-gradient(135deg, #bdd6ff, #eef3ff);
+  
+}
+
+.update-header {
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+.update-card {
+  margin-top: 0px;
+  border: 1px solid rgba(134, 162, 200, 0.5);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 24px rgba(18, 36, 69, 0.08);
+}
+
+.update-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.update-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #5aa6ff, #2c6df5);
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(23, 65, 134, 0.2);
+}
+
+.update-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.update-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3f5b7a;
+}
+
+.update-status.status-update {
+  color: #1b5fd1;
+}
+
+.update-status.status-ok {
+  color: #2f7d4b;
+}
+
+.update-status.status-easter {
+  color: #a45b2c;
+}
+
+.update-status.status-error {
+  color: #c24040;
+}
+
+.update-detail {
+  margin: 0;
+  font-size: 13px;
+  color: #4a6c94;
+}
+
+.update-links {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+}
+
+.update-links a {
+  color: #2f63c2;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.update-links a:hover {
+  text-decoration: underline;
 }
 
 .student-manager {
@@ -685,18 +872,40 @@ input[type="checkbox"] {
   margin-bottom: 16px;
 }
 
+.log-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .log-header h2 {
   margin: 0;
   font-size: 20px;
 }
 
-.log-subtitle {
-  font-size: 13px;
-  color: #5a6f8f;
+.debug-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2a6bff, #61a0ff);
+  box-shadow: 0 6px 14px rgba(36, 94, 190, 0.25);
+}
+
+.version-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2a44;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(120, 148, 185, 0.5);
 }
 
 .log-list {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -737,6 +946,8 @@ input[type="checkbox"] {
 
 .log-text {
   color: #1f2a44;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .log-empty {

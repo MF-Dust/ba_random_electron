@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, shell, dialog, ipcMain, net } = require('electron');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -390,6 +390,179 @@ function parseRequestJsonBody(req) {
   });
 }
 
+function parseVersionYaml(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const data = {};
+  lines.forEach((line) => {
+    const match = line.match(/^\s*([a-zA-Z0-9_-]+)\s*:\s*"?([^\"]*)"?\s*$/);
+    if (match) {
+      data[match[1]] = match[2];
+    }
+  });
+  return data;
+}
+
+function normalizeVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function compareVersion(a, b) {
+  const pa = normalizeVersion(a).split('.').map(n => parseInt(n, 10)).filter(n => Number.isFinite(n));
+  const pb = normalizeVersion(b).split('.').map(n => parseInt(n, 10)).filter(n => Number.isFinite(n));
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i += 1) {
+    const av = pa[i] || 0;
+    const bv = pb[i] || 0;
+    if (av > bv) return 1;
+    if (av < bv) return -1;
+  }
+  return 0;
+}
+
+function fetchUrl(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: 'GET',
+      url,
+      headers: {
+        'User-Agent': 'BA-Random',
+        'Accept': 'application/vnd.github+json',
+        ...(options.headers || {})
+      }
+    });
+    const chunks = [];
+    request.on('response', (response) => {
+      response.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      response.on('end', () => {
+        const body = Buffer.concat(chunks);
+        resolve({
+          statusCode: response.statusCode || 0,
+          headers: response.headers || {},
+          body
+        });
+      });
+    });
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+async function checkUpdateFromMain() {
+  const repoOwner = 'Yun-Hydrogen';
+  const repoName = 'ba_random_electron';
+  const debug = [];
+  const localVersion = app.getVersion();
+  const releaseApi = `https://api.github.com/repos/${repoOwner}/${repoName}/releases/latest`;
+  debug.push(`GET ${releaseApi}`);
+
+  const releaseResp = await fetchUrl(releaseApi);
+  if (releaseResp.statusCode < 200 || releaseResp.statusCode >= 300) {
+    return {
+      ok: false,
+      status: 'error',
+      title: '检查更新失败',
+      detail: `Release 请求失败 (${releaseResp.statusCode})`,
+      localVersion,
+      debug
+    };
+  }
+
+  const release = JSON.parse(releaseResp.body.toString('utf8'));
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  debug.push(`assets=${assets.length}`);
+  const versionAsset = assets.find(asset => asset.name === 'version.yml')
+    || assets.find(asset => String(asset.name || '').toLowerCase().endsWith('version.yml'));
+
+  if (!versionAsset || !versionAsset.browser_download_url) {
+    return {
+      ok: false,
+      status: 'error',
+      title: '未找到版本描述文件',
+      detail: '发布中缺少 version.yml，请稍后再试。',
+      releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
+      localVersion,
+      debug
+    };
+  }
+
+  debug.push(`GET ${versionAsset.browser_download_url}`);
+  const versionResp = await fetchUrl(versionAsset.browser_download_url, {
+    headers: { Accept: 'text/plain' }
+  });
+  if (versionResp.statusCode < 200 || versionResp.statusCode >= 300) {
+    return {
+      ok: false,
+      status: 'error',
+      title: '检查更新失败',
+      detail: `version.yml 下载失败 (${versionResp.statusCode})`,
+      releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
+      localVersion,
+      debug
+    };
+  }
+
+  const remoteMeta = parseVersionYaml(versionResp.body.toString('utf8'));
+  const remoteVersion = remoteMeta.version || '0.0.0';
+  const remoteCommit = remoteMeta.commit || '';
+  debug.push(`remoteVersion=${remoteVersion}`);
+
+  let commitMessage = '';
+  let commitUrl = '';
+  if (remoteCommit) {
+    commitUrl = `https://github.com/${repoOwner}/${repoName}/commit/${remoteCommit}`;
+    const commitApi = `https://api.github.com/repos/${repoOwner}/${repoName}/commits/${remoteCommit}`;
+    debug.push(`GET ${commitApi}`);
+    const commitResp = await fetchUrl(commitApi);
+    if (commitResp.statusCode >= 200 && commitResp.statusCode < 300) {
+      const commitJson = JSON.parse(commitResp.body.toString('utf8'));
+      if (commitJson && commitJson.commit && commitJson.commit.message) {
+        commitMessage = String(commitJson.commit.message).split('\n')[0];
+      }
+    }
+  }
+
+  const compare = compareVersion(localVersion, remoteVersion);
+  if (compare < 0) {
+    return {
+      ok: true,
+      status: 'update',
+      title: `发现新版本：${remoteVersion}`,
+      detail: commitMessage ? `更新内容：${commitMessage}` : '有新版本可用。',
+      commitUrl,
+      releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
+      localVersion,
+      remoteVersion,
+      debug
+    };
+  }
+
+  if (compare === 0) {
+    return {
+      ok: true,
+      status: 'ok',
+      title: `已是最新版本：${localVersion}`,
+      detail: commitMessage ? `当前提交：${commitMessage}` : '无需更新。',
+      commitUrl,
+      releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
+      localVersion,
+      remoteVersion,
+      debug
+    };
+  }
+
+  return {
+    ok: true,
+    status: 'easter',
+    title: `这是为什么呢？${localVersion}`,
+    detail: '为什么你的版本比最新发布的版本还要新呢？',
+    commitUrl,
+    releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
+    localVersion,
+    remoteVersion,
+    debug
+  };
+}
+
 function openConfigPageInBrowser() {
   const config = refreshConfig();
   const url = `http://localhost:${config.webConfig.port}/#/config`;
@@ -403,6 +576,28 @@ function createConfigServerRequestHandler() {
 
     if (req.method === 'GET' && requestUrl === '/api/config') {
       return sendJson(res, 200, refreshConfig());
+    }
+
+    if (req.method === 'GET' && requestUrl === '/api/app-info') {
+      return sendJson(res, 200, {
+        version: app.getVersion(),
+        isDebugMode
+      });
+    }
+
+    if (req.method === 'GET' && requestUrl === '/api/check-update') {
+      try {
+        const result = await checkUpdateFromMain();
+        return sendJson(res, 200, result);
+      } catch (error) {
+        console.error('Update check failed:', error);
+        return sendJson(res, 500, {
+          ok: false,
+          status: 'error',
+          title: '检查更新失败',
+          detail: '请检查网络或稍后再试。'
+        });
+      }
     }
 
     if (req.method === 'GET' && requestUrl === '/api/logs') {
@@ -1040,6 +1235,7 @@ ipcMain.on('floating-button:set-ignore-mouse', (event, ignore) => {
     win.setIgnoreMouseEvents(ignore, { forward: true });
   }
 });
+
 
 app.whenReady().then(() => {
   startConfigServer();
