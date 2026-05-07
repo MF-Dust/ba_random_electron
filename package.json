@@ -1,7 +1,7 @@
 {
   "name": "ba-random-electron",
-  "version": "1.5.0",
-  "description": "仿蔚蓝档案的随机点名工具-Electron",
+  "version": "26.05.1",
+  "description": "蔚蓝点名——仿《蔚蓝档案》学员招募的随机点名工具",
   "author": "HydrogenRua",
   "main": "dist-electron/main.js",
   "build": {

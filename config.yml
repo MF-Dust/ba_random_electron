@@ -16,13 +16,7 @@ studentList:
     weight: 1
   - name: "佳代子"
     weight: 1
-  - name: "伊织"
-    weight: 1
-  - name: "和纱"
-    weight: 1
   - name: "梓"
-    weight: 1
-  - name: "美游"
     weight: 1
 allowRepeatDraw: true
 
@@ -36,8 +30,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1342
-    y: 685
+    x: 1084
+    y: 507
 
 # 人数选择窗口配置
 pickCountDialog:

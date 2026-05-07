@@ -23,6 +23,8 @@
 - `animationKey`：用于重置动画的 key。
 - `instructionText`：底部提示文案。
 - `revealStarted`：是否开始展开姓名。
+- `canClose`：动画结束后才允许关闭。
+- `isClosing`：是否正在执行淡出关闭。
 - `playGachaSound`：是否播放抽取音效。
 - `gachaSoundVolume`：音效音量。
 - `topRow` / `bottomRow` / `isTwoRows`：拆分结果并判断是否双排。
@@ -34,10 +36,13 @@
   - 设置结果与动画 key。
   - 重置展开状态与计时器。
   - 根据结果数量计算展开延迟（`(n-1)*120 + 600` ms）。
+  - 关闭只在动画结束后允许（总时长约 `+450` ms）。
   - 触发抽取音效播放。
 - `closeResult()`：
   - 清空结果、停止音效、清理计时器。
+  - 先触发淡出动画（约 220ms），再等待一次渲染帧后通知主进程关闭。
   - 通过 `window.pickResultApi.close()` 通知主进程关闭。
+- `handleStageClick()` / `handleKeydown()`：仅在 `canClose` 为 true 时允许关闭。
 - `playGachaLoadingSound()`：创建/复用 `Audio` 播放音效，设置音量。
 - `stopGachaLoadingSound()`：暂停并归零音效。
 - `loadSoundConfig()`：读取 `window.pickResultApi.getConfig()` 获取 `defaultPlayGachaSound` 与音量。
@@ -47,15 +52,18 @@
   - 加载音效配置。
   - 读取初始结果 `getResults()` 并渲染。
   - 监听 `pick-result:open` 事件，更新配置并渲染新结果。
+  - 监听 `pick-result:reset` 事件，清空结果并重置动画状态。
 - `onBeforeUnmount()`：
   - 清理计时器与音效。
   - 移除 `onOpen` 监听。
+  - 移除 `onReset` 监听。
 
 ## IPC / API 依赖
 来自 `window.pickResultApi`：
 - `getResults()`：获取初始结果。
 - `getConfig()`：获取音效配置。
 - `onOpen(callback)`：监听结果窗口打开事件。
+- `onReset(callback)`：监听结果窗口重置事件。
 - `close()`：关闭结果窗口。
 
 ## 动画与时序

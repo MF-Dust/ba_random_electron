@@ -30,6 +30,9 @@
 ## 抽取逻辑
 - `pickStudentsByWeight(count)`：
   - 支持权重随机与允许/禁止重复抽取。
+  - 允许重复：先对权重做指数强化（`weight^WEIGHT_BOOST_GAMMA`），再进行轮盘赌抽样。
+  - 不允许重复：使用 Efraimidis-Spirakis 无放回加权抽样（`key = -ln(U)/weight`，取最小的 N 个）。
+  - 若全部权重为 0，则退化为均匀随机。
   - 为空名单或 `count<=0` 时直接返回空数组。
 
 ## 日志系统
@@ -64,7 +67,7 @@
 - `animateWindowOpacity()` / `fadeOutFloatingButtonWindow()` / `fadeInFloatingButtonWindow()`：淡入淡出动画。
 - `createPickCountWindowInstance()` / `createPickCountWindow()`：全屏人数选择窗口。
 - `createPickResultWindowInstance()` / `openPickResultWindow()`：抽取结果窗口。
-- `closePickCountWindow()` / `closePickResultWindow()`：关闭并恢复悬浮窗。
+- `closePickCountWindow()` / `closePickResultWindow()`：关闭并恢复悬浮窗（关闭时向渲染端发送 `pick-result:reset` 并用短暂 `opacity=0` + `show()` 强制刷新以清除残留）。
 - `persistFloatingButtonPosition()`：退出前保存悬浮窗位置。
 
 ## 托盘

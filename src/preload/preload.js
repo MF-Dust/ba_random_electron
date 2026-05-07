@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld('pickResultApi', {
     return () => {
       ipcRenderer.removeListener('pick-result:open', listener);
     };
+  },
+  onReset: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('pick-result:reset', listener);
+    return () => {
+      ipcRenderer.removeListener('pick-result:reset', listener);
+    };
   }
 });
 

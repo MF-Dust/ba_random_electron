@@ -294,6 +294,8 @@ function refreshConfig() {
   return currentConfig;
 }
 
+const WEIGHT_BOOST_GAMMA = 1.5;
+
 function pickStudentsByWeight(count) {
   const config = refreshConfig();
   const rawList = Array.isArray(config.studentList) ? config.studentList : [];
@@ -311,38 +313,66 @@ function pickStudentsByWeight(count) {
   const targetCount = Math.max(0, count);
   const picked = [];
   const allowRepeatDraw = Boolean(config.allowRepeatDraw);
-  const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
-
   if (pool.length === 0) {
     return picked;
   }
 
-  for (let i = 0; i < targetCount; i++) {
-    let pickIndex = -1;
-    const currentTotalWeight = allowRepeatDraw
-      ? totalWeight
-      : pool.reduce((sum, s) => sum + s.weight, 0);
+  if (allowRepeatDraw) {
+    const weightedPool = pool.map((s) => ({
+      name: s.name,
+      weight: Math.pow(s.weight, WEIGHT_BOOST_GAMMA)
+    }));
+    const totalWeight = weightedPool.reduce((sum, s) => sum + s.weight, 0);
 
-    if (currentTotalWeight > 0) {
-      let roll = Math.random() * currentTotalWeight;
-      for (let j = 0; j < pool.length; j++) {
-        roll -= pool[j].weight;
-        if (roll <= 0) {
-          pickIndex = j;
-          break;
+    for (let i = 0; i < targetCount; i++) {
+      let pickIndex = -1;
+      if (totalWeight > 0) {
+        let roll = Math.random() * totalWeight;
+        for (let j = 0; j < weightedPool.length; j++) {
+          roll -= weightedPool[j].weight;
+          if (roll <= 0) {
+            pickIndex = j;
+            break;
+          }
         }
       }
+
+      if (pickIndex < 0) {
+        pickIndex = Math.floor(Math.random() * weightedPool.length);
+      }
+
+      picked.push({ name: weightedPool[pickIndex].name });
     }
 
-    if (pickIndex < 0) {
-      pickIndex = Math.floor(Math.random() * pool.length);
+    return picked;
+  }
+
+  const positivePool = pool.filter((s) => s.weight > 0);
+  const zeroPool = pool.filter((s) => s.weight <= 0);
+  const hasPositiveWeight = positivePool.length > 0;
+
+  if (hasPositiveWeight) {
+    const keyed = positivePool.map((s) => ({
+      name: s.name,
+      key: -Math.log(Math.random()) / s.weight
+    }));
+
+    keyed.sort((a, b) => a.key - b.key);
+    const limit = Math.min(targetCount, keyed.length);
+    for (let i = 0; i < limit; i++) {
+      picked.push({ name: keyed[i].name });
     }
+  }
 
-    const chosen = allowRepeatDraw ? pool[pickIndex] : pool.splice(pickIndex, 1)[0];
-    picked.push({ name: chosen.name });
-
-    if (!allowRepeatDraw && pool.length === 0) {
-      break;
+  if (picked.length < targetCount && zeroPool.length > 0) {
+    const remaining = zeroPool.slice();
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+    const fillCount = Math.min(targetCount - picked.length, remaining.length);
+    for (let i = 0; i < fillCount; i++) {
+      picked.push({ name: remaining[i].name });
     }
   }
 
@@ -1036,9 +1066,18 @@ function closePickResultWindow() {
     return;
   }
 
-  if (pickResultWindow.isVisible()) {
-    pickResultWindow.hide();
+  pickResultWindow.webContents.send('pick-result:reset');
+  pickResultWindow.setOpacity(0);
+  if (!pickResultWindow.isVisible()) {
+    pickResultWindow.show();
   }
+  setTimeout(() => {
+    if (!pickResultWindow || pickResultWindow.isDestroyed()) {
+      return;
+    }
+    pickResultWindow.hide();
+    pickResultWindow.setOpacity(1);
+  }, 60);
 
   currentPickResults = [];
   isFloatingHiddenForPickCount = false;
@@ -1114,6 +1153,7 @@ function openPickResultWindow(results) {
     if (!pickResultWindow || pickResultWindow.isDestroyed()) {
       return;
     }
+    pickResultWindow.webContents.send('pick-result:reset');
     pickResultWindow.webContents.send('pick-result:open', {
       results: currentPickResults
     });

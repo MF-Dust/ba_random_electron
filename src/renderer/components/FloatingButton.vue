@@ -83,6 +83,7 @@ const pointerDown = ref(false)
 const activePointerId = ref(null)
 const isDragging = ref(false)
 const isHovering = ref(false)
+const lastPointerType = ref('mouse')
 const startGlobalX = ref(0)
 const startGlobalY = ref(0)
 const pendingDx = ref(0)
@@ -129,8 +130,7 @@ function cancelScheduledMove() {
 
 function updateIgnoreMouse() {
   if (!window.floatingButtonApi || !window.floatingButtonApi.setIgnoreMouseEvents) return
-  // 如果正处于按下状态或是悬停状态，就需要捕获事件 (ignore = false)
-  const shouldCapture = pointerDown.value || isHovering.value
+  const shouldCapture = lastPointerType.value !== 'mouse' || pointerDown.value || isHovering.value
   window.floatingButtonApi.setIgnoreMouseEvents(!shouldCapture)
 }
 
@@ -150,6 +150,7 @@ function handlePointerLeave(event) {
 
 function handlePointerDown(event) {
   if (event.pointerType === 'mouse' && event.button !== 0) return
+  lastPointerType.value = event.pointerType || 'mouse'
   pointerDown.value = true
   activePointerId.value = event.pointerId
   isDragging.value = false
@@ -168,6 +169,8 @@ function handlePointerDown(event) {
 function handlePointerMove(event) {
   if (activePointerId.value !== event.pointerId) return
   if (!pointerDown.value || !window.floatingButtonApi) return
+
+  lastPointerType.value = event.pointerType || lastPointerType.value
 
   const point = getGlobalPoint(event)
   const dx = point.x - startGlobalX.value
@@ -189,6 +192,8 @@ function handlePointerMove(event) {
 function handlePointerUp(event) {
   if (activePointerId.value !== event.pointerId) return
   if (!pointerDown.value) return
+
+  lastPointerType.value = event.pointerType || lastPointerType.value
 
   if (isDragging.value) {
     if (window.floatingButtonApi) {
@@ -212,6 +217,7 @@ function handlePointerUp(event) {
 
 function handlePointerCancel(event) {
   if (activePointerId.value !== null && activePointerId.value !== event.pointerId) return
+  lastPointerType.value = event.pointerType || lastPointerType.value
   if (isDragging.value && window.floatingButtonApi) {
     cancelScheduledMove()
     window.floatingButtonApi.endDrag()

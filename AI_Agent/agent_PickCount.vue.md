@@ -11,6 +11,7 @@
 - 遮罩层：`.pick-overlay`，根据 `backgroundDarknessPercent` 生成透明黑背景。
 - 面板：`.pick-panel`，标题、人数选择、动作按钮、音乐开关。
 - 人数选择：`- / +` 按钮 + 数字显示框。
+- 快捷设置：最小 / 最大按钮 + 范围提示。
 - 操作按钮：取消 / 确定。
 - 音乐开关：勾选后播放背景音乐。
 
@@ -21,6 +22,7 @@
 - `backgroundDarknessPercent`：遮罩黑度百分比。
 - `isDialogOpen`：窗口是否处于打开状态，用于避免误触发播放。
 - `isInitializing`：初始化配置中，避免 watch 触发播放。
+- `canDecrease`：`count > 1`。
 - `canIncrease`：`count < 10`。
 - `overlayStyle`：根据暗度生成背景颜色。
 
@@ -30,6 +32,7 @@
 - `initConfig()`：通过 `pickCountApi.getConfig()` 初始化人数、背景暗度、默认播放音乐。
 - `resetDialogStateFromConfig(shouldPlayBgm)`：重置状态 + 按需播放 BGM。
 - `increaseCount()` / `decreaseCount()`：人数增减并播放点击音效。
+- `setMinCount()` / `setMaxCount()`：一键设置最小/最大人数。
 - `playClickSound()`：播放按钮点击音效。
 - `playBgm()` / `stopAudio()`：播放/停止背景音乐。
 - `beginExit(action)`：触发退出动画，延迟通知主进程 `confirm/cancel`。

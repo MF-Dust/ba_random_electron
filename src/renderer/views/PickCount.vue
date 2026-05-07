@@ -24,6 +24,8 @@ const backgroundDarknessPercent = ref(50)
 const isDialogOpen = ref(false)
 const isInitializing = ref(false)
 
+const MIN_COUNT = 1
+const MAX_COUNT = 10
 const BGM_GAIN = 0.3
 const CLICK_SOUND_GAIN = 1
 const EXIT_ANIMATION_MS = 400
@@ -38,7 +40,8 @@ const attachAudioDebug = (audio, label) => {
     console.error(`${label} load failed`, { src: audio.src, error: audio.error })
   })
 }
-const canIncrease = computed(() => count.value < 10)
+const canDecrease = computed(() => count.value > MIN_COUNT)
+const canIncrease = computed(() => count.value < MAX_COUNT)
 
 const overlayStyle = computed(() => {
   const darkness = Math.max(0, Math.min(100, backgroundDarknessPercent.value))
@@ -54,7 +57,7 @@ async function initConfig() {
   if (!window.pickCountApi) return
   const cfg = await window.pickCountApi.getConfig()
 
-  count.value = clampInt(cfg.defaultCount, 1, 10, 1)
+  count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, MIN_COUNT)
   playMusic.value = Boolean(cfg.defaultPlayMusic)
   backgroundDarknessPercent.value = clampInt(cfg.backgroundDarknessPercent, 0, 100, 50)
 
@@ -65,16 +68,30 @@ async function initConfig() {
 }
 
 function increaseCount() {
-  if (count.value < 10) {
+  if (count.value < MAX_COUNT) {
     playClickSound()
     count.value += 1
   }
 }
 
 function decreaseCount() {
-  if (count.value > 1) {
+  if (count.value > MIN_COUNT) {
     playClickSound()
     count.value -= 1
+  }
+}
+
+function setMinCount() {
+  if (count.value !== MIN_COUNT) {
+    playClickSound()
+    count.value = MIN_COUNT
+  }
+}
+
+function setMaxCount() {
+  if (count.value !== MAX_COUNT) {
+    playClickSound()
+    count.value = MAX_COUNT
   }
 }
 
@@ -213,6 +230,12 @@ onBeforeUnmount(() => {
         <button class="pick-circle-btn" :disabled="isLeaving || !canIncrease" @click="increaseCount" aria-label="增加人数">+</button>
       </div>
 
+      <div class="pick-range-row">
+        <button class="pick-range-btn" :disabled="isLeaving || !canDecrease" @click="setMinCount">最小</button>
+        <span class="pick-range-hint">可选范围 {{ MIN_COUNT }}-{{ MAX_COUNT }}</span>
+        <button class="pick-range-btn" :disabled="isLeaving || !canIncrease" @click="setMaxCount">最大</button>
+      </div>
+
       <div class="pick-actions">
         <button class="pick-action-btn pick-action-cancel" :disabled="isLeaving" @click="handleCancel">取消</button>
         <button class="pick-action-btn pick-action-confirm" :disabled="isLeaving" @click="handleConfirm">确定</button>
@@ -276,6 +299,49 @@ onBeforeUnmount(() => {
   grid-template-columns: 80px 1fr 80px;
   align-items: center;
   gap: 14px;
+}
+
+.pick-range-row {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 88px 1fr 88px;
+  align-items: center;
+  gap: 12px;
+}
+
+.pick-range-btn {
+  height: 36px;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b2a55;
+  background: #e3e9f3;
+  box-shadow: 0 10px 16px rgba(19, 35, 62, 0.2);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+
+.pick-range-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.pick-range-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.pick-range-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.pick-range-hint {
+  text-align: center;
+  color: rgba(15, 35, 66, 0.78);
+  font-size: 13px;
+  letter-spacing: 0.3px;
 }
 
 .pick-circle-btn {

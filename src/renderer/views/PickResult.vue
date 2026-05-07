@@ -1,10 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const results = ref([])
 const animationKey = ref(0)
 const instructionText = ref('点击任意位置关闭')
 const revealStarted = ref(false)
+const canClose = ref(false)
+const isClosing = ref(false)
 
 const resolveAssetUrl = (relativePath) => {
   const base = window.location.protocol === 'file:'
@@ -15,6 +17,8 @@ const resolveAssetUrl = (relativePath) => {
 const gachaSoundUrl = resolveAssetUrl('sound/gacha_loading.wav')
 let gachaAudio = null
 let revealTimer = null
+let closeTimer = null
+let closeFadeTimer = null
 
 const playGachaSound = ref(true)
 const gachaSoundVolume = ref(0.6)
@@ -37,13 +41,12 @@ function normalizeResults(payload) {
 }
 
 function applyResults(payload) {
+  resetResultState({ stopSound: false })
   results.value = normalizeResults(payload)
-  animationKey.value += 1
-  revealStarted.value = false
 
-  if (revealTimer) {
-    clearTimeout(revealTimer)
-    revealTimer = null
+  if (results.value.length === 0) {
+    canClose.value = true
+    return
   }
 
   if (results.value.length > 0) {
@@ -51,6 +54,11 @@ function applyResults(payload) {
     revealTimer = setTimeout(() => {
       revealStarted.value = true
     }, totalDelayMs)
+
+    const totalDurationMs = totalDelayMs + 450
+    closeTimer = setTimeout(() => {
+      canClose.value = true
+    }, totalDurationMs)
   }
 
   if (playGachaSound.value && results.value.length > 0) {
@@ -58,18 +66,51 @@ function applyResults(payload) {
   }
 }
 
-function closeResult() {
+function resetResultState({ stopSound = true } = {}) {
   results.value = []
   animationKey.value += 1
   revealStarted.value = false
+  canClose.value = false
+  isClosing.value = false
   if (revealTimer) {
     clearTimeout(revealTimer)
     revealTimer = null
   }
-  stopGachaLoadingSound()
-  if (window.pickResultApi) {
-    window.pickResultApi.close()
+  if (closeTimer) {
+    clearTimeout(closeTimer)
+    closeTimer = null
   }
+  if (closeFadeTimer) {
+    clearTimeout(closeFadeTimer)
+    closeFadeTimer = null
+  }
+  if (stopSound) {
+    stopGachaLoadingSound()
+  }
+}
+
+function handleStageClick() {
+  if (!canClose.value || isClosing.value) return
+  closeResult()
+}
+
+function handleKeydown(event) {
+  if (event.key === 'Escape' && canClose.value && !isClosing.value) {
+    closeResult()
+  }
+}
+
+async function closeResult() {
+  if (isClosing.value) return
+  isClosing.value = true
+  closeFadeTimer = setTimeout(async () => {
+    resetResultState()
+    await nextTick()
+    await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    if (window.pickResultApi) {
+      window.pickResultApi.close()
+    }
+  }, 220)
 }
 
 function stopGachaLoadingSound() {
@@ -108,6 +149,7 @@ async function loadSoundConfig() {
 }
 
 let removeOpenListener = null
+let removeResetListener = null
 
 onMounted(async () => {
   await loadSoundConfig()
@@ -123,6 +165,12 @@ onMounted(async () => {
       applyResults(payload)
     })
   }
+
+  if (window.pickResultApi && typeof window.pickResultApi.onReset === 'function') {
+    removeResetListener = window.pickResultApi.onReset(() => {
+      resetResultState()
+    })
+  }
 })
 
 onBeforeUnmount(() => {
@@ -130,15 +178,32 @@ onBeforeUnmount(() => {
     clearTimeout(revealTimer)
     revealTimer = null
   }
+  if (closeTimer) {
+    clearTimeout(closeTimer)
+    closeTimer = null
+  }
+  if (closeFadeTimer) {
+    clearTimeout(closeFadeTimer)
+    closeFadeTimer = null
+  }
   stopGachaLoadingSound()
   if (typeof removeOpenListener === 'function') {
     removeOpenListener()
+  }
+  if (typeof removeResetListener === 'function') {
+    removeResetListener()
   }
 })
 </script>
 
 <template>
-  <div class="result-stage" tabindex="0" @click="closeResult" @keydown.esc="closeResult">
+  <div
+    class="result-stage"
+    :class="{ 'is-closing': isClosing }"
+    tabindex="0"
+    @click="handleStageClick"
+    @keydown="handleKeydown"
+  >
     <div class="result-rows" :class="{ 'is-two-rows': isTwoRows }" :key="animationKey">
       <div class="result-row">
         <div
@@ -183,6 +248,11 @@ onBeforeUnmount(() => {
   gap: 26px;
   background: rgba(0, 0, 0, 0.35);
   outline: none;
+}
+
+.result-stage.is-closing {
+  pointer-events: none;
+  animation: result-fade-out 220ms ease forwards;
 }
 
 .result-rows {
@@ -274,6 +344,15 @@ onBeforeUnmount(() => {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes result-fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
   }
 }
 </style>
