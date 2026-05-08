@@ -30,8 +30,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1084
-    y: 507
+    x: 1120
+    y: 674
 
 # 人数选择窗口配置
 pickCountDialog:
@@ -53,3 +53,11 @@ pickResultDialog:
 webConfig:
   # 配置网页端口（默认 21219）
   port: 21219
+  # 启用管理员置顶增强（Windows 下会尝试管理员权限）
+  adminTopmostEnabled: true
+  # 是否创建开机计划任务（管理员权限运行）
+  adminAutoStartEnabled: false
+  # 计划任务运行的可执行文件路径
+  adminAutoStartPath: ""
+  # 计划任务名称
+  adminAutoStartTaskName: "Blue Random (Admin)"

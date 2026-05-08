@@ -56,6 +56,8 @@
   - `GET /api/app-info`：返回 `version` 与 `isDebugMode`。
   - `GET /api/check-update`：更新检查。
   - `POST /api/restart`：重启应用。
+  - `POST /api/admin/elevate`：申请管理员权限并重启。
+  - `POST /api/task/create-admin-startup`：创建/更新管理员权限开机计划任务。
   - 静态资源：开发环境重定向至 Vite；生产环境读取 `dist`。
 - `startConfigServer()`：按配置端口启动/重启服务。
 

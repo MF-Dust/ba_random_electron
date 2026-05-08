@@ -1,12 +1,12 @@
 {
-  "name": "ba-random-electron",
-  "version": "26.05.1",
+  "name": "blue-random-electron",
+  "version": "26.05.2",
   "description": "蔚蓝点名——仿《蔚蓝档案》学员招募的随机点名工具",
   "author": "HydrogenRua",
   "main": "dist-electron/main.js",
   "build": {
-    "appId": "com.hydrogenrua.ba-random",
-    "productName": "BA Random",
+    "appId": "com.hydrogenrua.blue-random",
+    "productName": "Blue Random",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",

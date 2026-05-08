@@ -41,7 +41,7 @@ contextBridge.exposeInMainWorld('pickResultApi', {
     };
   },
   onReset: (callback) => {
-    const listener = () => callback();
+    const listener = (_event, payload) => callback(payload);
     ipcRenderer.on('pick-result:reset', listener);
     return () => {
       ipcRenderer.removeListener('pick-result:reset', listener);

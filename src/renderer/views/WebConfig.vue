@@ -3,8 +3,8 @@
     <div class="layout">
       <section class="panel panel-left">
         <div class="header">
-          <h1>BA-Random Web配置页</h1>
-          <p class="hint">老师可以在这里配置BA-Random的各项功能哦！</p>
+          <h1>蔚蓝点名 Web配置页</h1>
+          <p class="hint">老师可以在这里配置 蔚蓝点名 的各项功能哦！</p>
         </div>
 
       <div class="tabs">
@@ -146,8 +146,32 @@
                 <input type="number" v-model.number="config.webConfig.port" min="1" max="65535" required />
               </label>
 
-              <p class="update-header">检查应用程序更新</p>
-              <div class="update-card">
+              <div class="admin-block always-top-block">
+                <p class="admin-title">管理员置顶增强（Windows）</p>
+                <label class="inline">
+                  <input type="checkbox" v-model="config.webConfig.adminTopmostEnabled" />
+                  启用启动时申请管理员权限置顶
+                </label>
+                <p class="admin-hint">开启后程序启动会弹出 UAC 提示，以提升悬浮按钮的置顶能力。</p>
+                <button type="button" class="admin-btn" @click="requestAdminElevation">管理员身份重启</button>
+              </div>
+
+              <div class="admin-block auto-start-block">
+                <p class="admin-title">开机计划任务（管理员运行）</p>
+                <label>
+                  可执行文件路径（exe）
+                  <input type="text" v-model="config.webConfig.adminAutoStartPath" placeholder="例如：C:\\Program Files\\Blue Random\\Blue Random.exe" />
+                </label>
+                <label>
+                  任务名称
+                  <input type="text" v-model="config.webConfig.adminAutoStartTaskName" />
+                </label>
+                <p class="admin-hint">点击按钮后会创建/更新计划任务，登录时以管理员权限启动。</p>
+                <button type="button" class="admin-btn" @click="createAdminStartupTask">创建/更新计划任务</button>
+              </div>
+              
+              <div class="admin-block update-block">
+                <p class="admin-title">检查更新</p>
                 <div class="update-row">
                   <button type="button" class="update-btn" :disabled="updateState.loading" @click="checkUpdate">
                     {{ updateState.loading ? '检查中...' : '检查更新' }}
@@ -172,7 +196,8 @@
         <div class="log-header">
           <div class="log-title-row">
             <h2>运行日志</h2>
-            <span v-if="isDebugMode" class="debug-badge">调试模式</span>
+            <span v-if="isDebugMode" class="debug-badge">Dev</span>
+            <span v-if="isAdmin" class="admin-badge">管理员</span>
             <span class="version-badge">版本 {{ appVersion }}</span>
           </div>
         </div>
@@ -208,6 +233,7 @@ const releasePageUrl = 'https://github.com/Yun-Hydrogen/ba_random_electron/relea
 
 const logs = ref([])
 const isDebugMode = ref(false)
+const isAdmin = ref(false)
 const appVersion = ref('0.0.0')
 const updateState = ref({
   loading: false,
@@ -329,7 +355,11 @@ const config = ref({
     gachaSoundVolume: 0.6
   },
   webConfig: {
-    port: 21219
+    port: 21219,
+    adminTopmostEnabled: false,
+    adminAutoStartEnabled: false,
+    adminAutoStartPath: '',
+    adminAutoStartTaskName: 'Blue Random (Admin)'
   }
 })
 
@@ -406,9 +436,11 @@ const fetchAppInfo = async () => {
   try {
     const response = await axios.get(`${apiBase}/app-info`)
     isDebugMode.value = Boolean(response.data && response.data.isDebugMode)
+    isAdmin.value = Boolean(response.data && response.data.isAdmin)
     appVersion.value = response.data && response.data.version ? response.data.version : '0.0.0'
   } catch (_error) {
     isDebugMode.value = false
+    isAdmin.value = false
     appVersion.value = '0.0.0'
   }
 }
@@ -438,7 +470,11 @@ const saveConfig = async () => {
         gachaSoundVolume: Number(config.value.pickResultDialog.gachaSoundVolume)
       },
       webConfig: {
-        port: Number(config.value.webConfig.port)
+        port: Number(config.value.webConfig.port),
+        adminTopmostEnabled: Boolean(config.value.webConfig.adminTopmostEnabled),
+        adminAutoStartEnabled: Boolean(config.value.webConfig.adminAutoStartEnabled),
+        adminAutoStartPath: String(config.value.webConfig.adminAutoStartPath || ''),
+        adminAutoStartTaskName: String(config.value.webConfig.adminAutoStartTaskName || 'Blue Random (Admin)')
       }
     }
 
@@ -449,6 +485,38 @@ const saveConfig = async () => {
     console.error('保存配置失败:', error)
     addLog('error', '保存失败，请检查输入内容')
     window.alert('保存失败，请检查输入内容。')
+  }
+}
+
+const requestAdminElevation = async () => {
+  try {
+    const response = await axios.post(`${apiBase}/admin/elevate`)
+    addLog('info', response.data?.message || '已发送管理员权限请求')
+    window.alert(response.data?.message || '已发送管理员权限请求。')
+  } catch (error) {
+    console.error('申请管理员权限失败:', error)
+    addLog('error', '申请管理员权限失败')
+    window.alert('申请管理员权限失败，请查看日志。')
+  }
+}
+
+const createAdminStartupTask = async () => {
+  try {
+    const payload = {
+      exePath: String(config.value.webConfig.adminAutoStartPath || '').trim(),
+      taskName: String(config.value.webConfig.adminAutoStartTaskName || 'Blue Random (Admin)').trim()
+    }
+    if (!payload.exePath) {
+      window.alert('请先填写可执行文件路径。')
+      return
+    }
+    const response = await axios.post(`${apiBase}/task/create-admin-startup`, payload)
+    addLog('success', response.data?.message || '计划任务已创建或更新')
+    window.alert(response.data?.message || '计划任务已创建或更新。')
+  } catch (error) {
+    console.error('创建计划任务失败:', error)
+    addLog('error', '创建计划任务失败')
+    window.alert('创建计划任务失败，请查看日志。')
   }
 }
 
@@ -464,25 +532,36 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
+:global(html),
+:global(body) {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
 .page {
-  min-height: 100vh;
+  height: 100vh;
   padding: 28px;
   display: flex;
-  align-items: flex-start;
-  justify-content: stretch;
+  align-items: stretch;
+  justify-content: center;
   font-family: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", sans-serif;
   background:
     radial-gradient(1200px 800px at 20% 10%, rgba(148, 199, 255, 0.28), transparent 60%),
     radial-gradient(900px 600px at 80% 0%, rgba(167, 222, 255, 0.22), transparent 55%),
     #eef3fb;
   color: #0f1f3b;
+  overflow: hidden;
 }
 
 .layout {
   width: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-rows: 1fr;
   gap: 20px;
+  height: 100%;
 }
 
 .panel {
@@ -495,14 +574,17 @@ onMounted(() => {
 }
 
 .panel-left {
-  min-height: 720px;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-right {
   display: flex;
   flex-direction: column;
-  min-height: 720px;
-  max-height: calc(100vh - 56px);
+  min-height: 0;
+  min-width: 0;
 }
 
 h1 {
@@ -554,9 +636,26 @@ h1 {
   box-shadow: 0 8px 18px rgba(16, 32, 59, 0.12);
 }
 
+#config-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 0;
+  min-height: 0;
+}
+
 .tab-content {
-  min-height: 220px;
   padding: 10px 0;
+  height: 100%;
+}
+
+.tab-container {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+  overflow-y: scroll; 
+  padding-right: 6px;
+  position: relative;
 }
 
 .list-manager {
@@ -628,6 +727,7 @@ label {
   display: block;
   margin: 10px 0;
   font-size: 14px;
+  color: #2a4365;
 }
 
 .inline {
@@ -636,19 +736,50 @@ label {
   gap: 8px;
 }
 
-input[type="number"] {
+input[type="number"],
+input[type="text"],
+textarea,
+select {
   width: 100%;
   margin-top: 6px;
-  border: 1px solid rgba(127, 157, 193, 0.55);
-  border-radius: 12px;
+  border: 1px solid rgba(122, 151, 190, 0.55);
+  border-radius: 14px;
   padding: 10px 12px;
   font-size: 15px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  color: #102743;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(45, 110, 210, 0.8);
+  box-shadow: 0 0 0 4px rgba(74, 130, 220, 0.18);
+  background: #ffffff;
+}
+
+input[type="number"]:disabled,
+input[type="text"]:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: rgba(235, 241, 249, 0.7);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(90, 113, 145, 0.7);
 }
 
 input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  accent-color: #2a6bff;
+  border-radius: 5px;
 }
 
 .row {
@@ -695,11 +826,11 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
 }
 
 .update-btn {
   border: 0;
+  margin-top: 3px;
   border-radius: 10px;
   padding: 8px 16px;
   font-weight: 700;
@@ -737,9 +868,13 @@ input[type="checkbox"] {
 }
 
 .update-detail {
-  margin: 0;
+  border: 1px solid #75c5fe5c;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(217, 239, 255, 0.15);
   font-size: 13px;
   color: #4a6c94;
+  white-space: pre-wrap;
 }
 
 .update-links {
@@ -757,6 +892,58 @@ input[type="checkbox"] {
 
 .update-links a:hover {
   text-decoration: underline;
+}
+
+.admin-block {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 150, 190, 0.35);
+  background: rgba(238, 244, 252, 0.7);
+}
+
+.admin-block.always-top-block {
+  background: rgba(255, 237, 199, 0.7);
+  border-color: rgba(255, 188, 44, 0.4);
+}
+
+.admin-block.update-block {
+  background: rgba(250, 234, 255, 0.354);
+  border-color: rgba(255, 68, 249, 0.4);
+}
+
+.admin-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: #123564;
+}
+
+.admin-hint {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  color: rgba(20, 40, 70, 0.78);
+}
+
+.admin-btn {
+  height: 40px;
+  border-radius: 8px;
+  padding: 0px 16px;
+  border: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2a4365;
+  background: linear-gradient(135deg, #d2f0ff, #9bdeff);
+  box-shadow: 0 10px 18px rgba(30, 52, 92, 0.18);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+
+.admin-btn:hover {
+  filter: brightness(1.05);
+}
+
+.admin-btn:active {
+  transform: translateY(1px) scale(0.985);
 }
 
 .student-manager {
@@ -893,6 +1080,16 @@ input[type="checkbox"] {
   box-shadow: 0 6px 14px rgba(36, 94, 190, 0.25);
 }
 
+.admin-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3a2600;
+  background: linear-gradient(135deg, #ffd36a, #ffb347);
+  box-shadow: 0 6px 14px rgba(180, 120, 20, 0.25);
+}
+
 .version-badge {
   padding: 4px 10px;
   border-radius: 999px;
@@ -957,12 +1154,6 @@ input[type="checkbox"] {
   background: rgba(255, 255, 255, 0.6);
   border: 1px dashed rgba(151, 177, 210, 0.5);
   border-radius: 12px;
-}
-
-/* 滑动切换动画 */
-.tab-container {
-  position: relative;
-  overflow: hidden;
 }
 
 .slide-left-enter-active, .slide-left-leave-active,

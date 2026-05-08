@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, nativeImage, shell, dialog, ipcMain, net } = require('electron');
 const http = require('http');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
@@ -32,9 +33,16 @@ const DEFAULT_CONFIG = {
     gachaSoundVolume: 0.6
   },
   webConfig: {
-    port: 21219
+    port: 21219,
+    adminTopmostEnabled: false,
+    adminAutoStartEnabled: false,
+    adminAutoStartPath: '',
+    adminAutoStartTaskName: 'Blue Random (Admin)'
   }
 };
+
+const IS_WINDOWS = process.platform === 'win32';
+const ADMIN_TASK_DEFAULT_NAME = 'Blue Random (Admin)';
 
 let currentConfig = DEFAULT_CONFIG;
 const dragSessions = new Map();
@@ -46,6 +54,7 @@ let isFloatingHiddenForPickCount = false;
 let pickResultWindow = null;
 let isPickResultWindowReady = false;
 let currentPickResults = [];
+let pickResultToken = 0;
 let configServer = null;
 let configServerPort = null;
 let isQuitting = false;
@@ -109,6 +118,83 @@ function clampNumber(value, min, max, fallback) {
   const num = Number(value);
   if (Number.isNaN(num)) return fallback;
   return Math.min(max, Math.max(min, num));
+}
+
+function quoteForPowerShell(text) {
+  return String(text).replace(/'/g, "''");
+}
+
+function isProcessElevated() {
+  if (!IS_WINDOWS) return false;
+  try {
+    const output = execFileSync('powershell', [
+      '-NoProfile',
+      '-Command',
+      '([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)'
+    ], { encoding: 'utf8' });
+    return String(output).trim().toLowerCase() === 'true';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function requestAdminRelaunch() {
+  if (!IS_WINDOWS) {
+    return { ok: false, message: '当前系统不支持管理员提升。' };
+  }
+
+  const exePath = process.execPath;
+  const args = process.argv.slice(1).map(arg => `"${arg.replace(/"/g, '\\"')}"`).join(' ');
+  const command = `Start-Process -FilePath '${quoteForPowerShell(exePath)}' -ArgumentList '${quoteForPowerShell(args)}' -Verb RunAs`;
+
+  try {
+    execFileSync('powershell', ['-NoProfile', '-Command', command], { stdio: 'ignore' });
+    return { ok: true, message: '已请求管理员权限，即将重新启动。' };
+  } catch (error) {
+    return { ok: false, message: '管理员权限请求失败或被取消。', detail: String(error) };
+  }
+}
+
+function createAdminStartupTask({ taskName, exePath, runAsUser }) {
+  if (!IS_WINDOWS) {
+    return { ok: false, message: '仅支持 Windows 计划任务。' };
+  }
+
+  if (!exePath || !fs.existsSync(exePath)) {
+    return { ok: false, message: '可执行文件路径无效或不存在。' };
+  }
+
+  const safeTaskName = taskName || ADMIN_TASK_DEFAULT_NAME;
+  const userName = runAsUser || process.env.USERNAME || '';
+  const taskArgs = [
+    '/Create',
+    '/F',
+    '/RL',
+    'HIGHEST',
+    '/SC',
+    'ONLOGON',
+    '/TN',
+    safeTaskName,
+    '/TR',
+    `"${exePath}"`
+  ];
+
+  if (userName) {
+    taskArgs.push('/RU', userName);
+  }
+
+  try {
+    if (isProcessElevated()) {
+      execFileSync('schtasks', taskArgs, { stdio: 'ignore' });
+    } else {
+      const psArgs = taskArgs.map(arg => `"${arg.replace(/"/g, '\\"')}"`).join(' ');
+      const command = `Start-Process -FilePath 'schtasks.exe' -ArgumentList '${quoteForPowerShell(psArgs)}' -Verb RunAs -Wait`;
+      execFileSync('powershell', ['-NoProfile', '-Command', command], { stdio: 'ignore' });
+    }
+    return { ok: true, message: '计划任务已创建或更新。' };
+  } catch (error) {
+    return { ok: false, message: '计划任务创建失败或被取消。', detail: String(error) };
+  }
 }
 
 function normalizeConfig(input) {
@@ -183,7 +269,23 @@ function normalizeConfig(input) {
       )
     },
     webConfig: {
-      port: Math.round(clampNumber(web.port, 1, 65535, DEFAULT_CONFIG.webConfig.port))
+      port: Math.round(clampNumber(web.port, 1, 65535, DEFAULT_CONFIG.webConfig.port)),
+      adminTopmostEnabled:
+        typeof web.adminTopmostEnabled === 'boolean'
+          ? web.adminTopmostEnabled
+          : DEFAULT_CONFIG.webConfig.adminTopmostEnabled,
+      adminAutoStartEnabled:
+        typeof web.adminAutoStartEnabled === 'boolean'
+          ? web.adminAutoStartEnabled
+          : DEFAULT_CONFIG.webConfig.adminAutoStartEnabled,
+      adminAutoStartPath:
+        typeof web.adminAutoStartPath === 'string'
+          ? web.adminAutoStartPath
+          : DEFAULT_CONFIG.webConfig.adminAutoStartPath,
+      adminAutoStartTaskName:
+        typeof web.adminAutoStartTaskName === 'string' && web.adminAutoStartTaskName.trim()
+          ? web.adminAutoStartTaskName.trim()
+          : DEFAULT_CONFIG.webConfig.adminAutoStartTaskName
     }
   };
 }
@@ -247,6 +349,14 @@ function toConfigYamlWithComments(config) {
     'webConfig:',
     '  # 配置网页端口（默认 21219）',
     `  port: ${web.port}`,
+    '  # 启用管理员置顶增强（Windows 下会尝试管理员权限）',
+    `  adminTopmostEnabled: ${web.adminTopmostEnabled ? 'true' : 'false'}`,
+    '  # 是否创建开机计划任务（管理员权限运行）',
+    `  adminAutoStartEnabled: ${web.adminAutoStartEnabled ? 'true' : 'false'}`,
+    '  # 计划任务运行的可执行文件路径',
+    `  adminAutoStartPath: "${String(web.adminAutoStartPath || '')}"`,
+    '  # 计划任务名称',
+    `  adminAutoStartTaskName: "${String(web.adminAutoStartTaskName || ADMIN_TASK_DEFAULT_NAME)}"`,
     ''
   ].join('\n');
 }
@@ -455,7 +565,7 @@ function fetchUrl(url, options = {}) {
       method: 'GET',
       url,
       headers: {
-        'User-Agent': 'BA-Random',
+        'User-Agent': 'Blue-Random',
         'Accept': 'application/vnd.github+json',
         ...(options.headers || {})
       }
@@ -546,7 +656,7 @@ async function checkUpdateFromMain() {
     if (commitResp.statusCode >= 200 && commitResp.statusCode < 300) {
       const commitJson = JSON.parse(commitResp.body.toString('utf8'));
       if (commitJson && commitJson.commit && commitJson.commit.message) {
-        commitMessage = String(commitJson.commit.message).split('\n')[0];
+          commitMessage = String(commitJson.commit.message).trim();
       }
     }
   }
@@ -557,7 +667,7 @@ async function checkUpdateFromMain() {
       ok: true,
       status: 'update',
       title: `发现新版本：${remoteVersion}`,
-      detail: commitMessage ? `更新内容：${commitMessage}` : '有新版本可用。',
+      detail: commitMessage ? `更新内容：\n${commitMessage}` : '有新版本可用。',
       commitUrl,
       releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
       localVersion,
@@ -571,7 +681,7 @@ async function checkUpdateFromMain() {
       ok: true,
       status: 'ok',
       title: `已是最新版本：${localVersion}`,
-      detail: commitMessage ? `当前提交：${commitMessage}` : '无需更新。',
+      detail: commitMessage ? `当前提交：\n${commitMessage}` : '无需更新。',
       commitUrl,
       releaseUrl: release.html_url || `https://github.com/${repoOwner}/${repoName}/releases/latest`,
       localVersion,
@@ -611,7 +721,8 @@ function createConfigServerRequestHandler() {
     if (req.method === 'GET' && requestUrl === '/api/app-info') {
       return sendJson(res, 200, {
         version: app.getVersion(),
-        isDebugMode
+        isDebugMode,
+        isAdmin: isProcessElevated()
       });
     }
 
@@ -687,6 +798,54 @@ function createConfigServerRequestHandler() {
         app.exit(0);
       }, 80);
       return;
+    }
+
+    if (req.method === 'POST' && requestUrl === '/api/admin/elevate') {
+      if (!IS_WINDOWS) {
+        return sendJson(res, 400, { ok: false, message: '当前系统不支持管理员提升。' });
+      }
+      if (isProcessElevated()) {
+        return sendJson(res, 200, { ok: true, message: '已在管理员权限下运行。' });
+      }
+
+      sendJson(res, 200, { ok: true, message: '即将请求管理员权限并重启。' });
+      setTimeout(() => {
+        const result = requestAdminRelaunch();
+        if (result.ok) {
+          isQuitting = true;
+          app.exit(0);
+        }
+      }, 120);
+      return;
+    }
+
+    if (req.method === 'POST' && requestUrl === '/api/task/create-admin-startup') {
+      try {
+        const payload = await parseRequestJsonBody(req);
+        const exePath = payload && typeof payload.exePath === 'string' ? payload.exePath.trim() : '';
+        const taskName = payload && typeof payload.taskName === 'string' ? payload.taskName.trim() : ADMIN_TASK_DEFAULT_NAME;
+        const result = createAdminStartupTask({ taskName, exePath });
+
+        if (!result.ok) {
+          return sendJson(res, 400, result);
+        }
+
+        const baseConfig = refreshConfig();
+        currentConfig = normalizeConfig({
+          ...baseConfig,
+          webConfig: {
+            ...baseConfig.webConfig,
+            adminAutoStartEnabled: true,
+            adminAutoStartPath: exePath,
+            adminAutoStartTaskName: taskName
+          }
+        });
+        saveConfig(currentConfig);
+
+        return sendJson(res, 200, result);
+      } catch (error) {
+        return sendJson(res, 400, { ok: false, message: '创建计划任务失败。' });
+      }
     }
 
     const urlPath = requestUrl.split('?')[0].split('#')[0];
@@ -880,6 +1039,9 @@ function createFloatingButtonWindow() {
   if (config.floatingButton.alwaysOnTop) {
     win.setAlwaysOnTop(true, 'screen-saver');
   }
+  if (config.webConfig && config.webConfig.adminTopmostEnabled && typeof win.setVisibleOnAllWorkspaces === 'function') {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
 
   win.setMenuBarVisibility(false);
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -1066,7 +1228,11 @@ function closePickResultWindow() {
     return;
   }
 
-  pickResultWindow.webContents.send('pick-result:reset');
+  pickResultToken += 1;
+  pickResultWindow.webContents.send('pick-result:reset', {
+    token: pickResultToken,
+    reason: 'close'
+  });
   pickResultWindow.setOpacity(0);
   if (!pickResultWindow.isVisible()) {
     pickResultWindow.show();
@@ -1153,8 +1319,13 @@ function openPickResultWindow(results) {
     if (!pickResultWindow || pickResultWindow.isDestroyed()) {
       return;
     }
-    pickResultWindow.webContents.send('pick-result:reset');
+    pickResultToken += 1;
+    pickResultWindow.webContents.send('pick-result:reset', {
+      token: pickResultToken,
+      reason: 'before-open'
+    });
     pickResultWindow.webContents.send('pick-result:open', {
+      token: pickResultToken,
       results: currentPickResults
     });
     pickResultWindow.show();
@@ -1180,7 +1351,7 @@ function createTray() {
   const trayIcon = nativeImage.createFromPath(trayIconPath);
   appTray = new Tray(trayIcon);
 
-  appTray.setToolTip('BA Random Electron');
+  appTray.setToolTip('Blue Random Electron');
   const trayMenu = buildTrayContextMenu({
     onOpenConfig: () => {
       openConfigPageInBrowser();
@@ -1278,6 +1449,16 @@ ipcMain.on('floating-button:set-ignore-mouse', (event, ignore) => {
 
 
 app.whenReady().then(() => {
+  const startupConfig = refreshConfig();
+  if (startupConfig.webConfig && startupConfig.webConfig.adminTopmostEnabled && IS_WINDOWS && !isProcessElevated()) {
+    const result = requestAdminRelaunch();
+    if (result.ok) {
+      isQuitting = true;
+      app.exit(0);
+      return;
+    }
+  }
+
   startConfigServer();
   createTray();
   createFloatingButtonWindow();

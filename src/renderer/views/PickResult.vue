@@ -7,6 +7,7 @@ const instructionText = ref('点击任意位置关闭')
 const revealStarted = ref(false)
 const canClose = ref(false)
 const isClosing = ref(false)
+const lastToken = ref(0)
 
 const resolveAssetUrl = (relativePath) => {
   const base = window.location.protocol === 'file:'
@@ -43,6 +44,10 @@ function normalizeResults(payload) {
 function applyResults(payload) {
   resetResultState({ stopSound: false })
   results.value = normalizeResults(payload)
+  const token = Number(payload?.token)
+  if (Number.isFinite(token)) {
+    lastToken.value = token
+  }
 
   if (results.value.length === 0) {
     canClose.value = true
@@ -87,6 +92,21 @@ function resetResultState({ stopSound = true } = {}) {
   if (stopSound) {
     stopGachaLoadingSound()
   }
+}
+
+function handleReset(payload) {
+  const token = Number(payload?.token)
+  const reason = payload?.reason
+  if (Number.isFinite(token)) {
+    if (reason === 'before-open' && token === lastToken.value) {
+      return
+    }
+    if (token < lastToken.value) {
+      return
+    }
+    lastToken.value = token
+  }
+  resetResultState()
 }
 
 function handleStageClick() {
@@ -167,8 +187,8 @@ onMounted(async () => {
   }
 
   if (window.pickResultApi && typeof window.pickResultApi.onReset === 'function') {
-    removeResetListener = window.pickResultApi.onReset(() => {
-      resetResultState()
+    removeResetListener = window.pickResultApi.onReset((payload) => {
+      handleReset(payload)
     })
   }
 })

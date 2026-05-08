@@ -25,6 +25,7 @@
 - `revealStarted`：是否开始展开姓名。
 - `canClose`：动画结束后才允许关闭。
 - `isClosing`：是否正在执行淡出关闭。
+- `lastToken`：结果批次序号，用于忽略过期 reset 事件。
 - `playGachaSound`：是否播放抽取音效。
 - `gachaSoundVolume`：音效音量。
 - `topRow` / `bottomRow` / `isTwoRows`：拆分结果并判断是否双排。
@@ -34,6 +35,7 @@
 - `normalizeResults(payload)`：兼容多种结果格式，统一为 `{ name }[]`。
 - `applyResults(payload)`：
   - 设置结果与动画 key。
+  - 写入 `payload.token`，标记当前批次。
   - 重置展开状态与计时器。
   - 根据结果数量计算展开延迟（`(n-1)*120 + 600` ms）。
   - 关闭只在动画结束后允许（总时长约 `+450` ms）。
@@ -43,6 +45,7 @@
   - 先触发淡出动画（约 220ms），再等待一次渲染帧后通知主进程关闭。
   - 通过 `window.pickResultApi.close()` 通知主进程关闭。
 - `handleStageClick()` / `handleKeydown()`：仅在 `canClose` 为 true 时允许关闭。
+- `handleReset(payload)`：根据 `token` 与 `reason` 忽略过期 reset，避免清空刚打开的结果。
 - `playGachaLoadingSound()`：创建/复用 `Audio` 播放音效，设置音量。
 - `stopGachaLoadingSound()`：暂停并归零音效。
 - `loadSoundConfig()`：读取 `window.pickResultApi.getConfig()` 获取 `defaultPlayGachaSound` 与音量。

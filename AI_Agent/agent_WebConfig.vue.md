@@ -15,6 +15,7 @@
   - `floating` 悬浮按钮配置（大小、透明度、置顶、位置）。
   - `pickCount` 抽取动画配置（BGM、抽取音效、音量、背景暗度、默认人数）。
   - `web` 系统服务（端口设置 + 更新检查卡片）。
+    - 额外：管理员置顶增强开关、管理员权限申请按钮、开机计划任务配置。
 - 保存按钮：提交配置。
 - 右侧日志面板：
   - 标题行：运行日志 + 调试模式徽章（可选）+ 版本号（总是显示）。
@@ -41,6 +42,8 @@
 - `saveConfig()`：
   - `syncTextToList()` 生成学生名单。
   - 组装 payload 并 POST `/api/config` 保存。
+- `requestAdminElevation()`：请求管理员权限并重启。
+- `createAdminStartupTask()`：创建/更新管理员权限开机计划任务。
 - `fetchAppInfo()`：GET `/api/app-info` 获取 `isDebugMode` 与版本号。
 - 名单处理：
   - `syncTextToList()`：文本解析为去重名单 + 权重。
@@ -55,6 +58,8 @@
 - `GET /api/logs`：SSE 日志流。
 - `GET /api/check-update`：更新检查。
 - `GET /api/app-info`：版本号 + 调试模式。
+- `POST /api/admin/elevate`：请求管理员权限并重启。
+- `POST /api/task/create-admin-startup`：创建/更新管理员权限开机任务。
 
 ## 更新检查返回约定
 `/api/check-update` 返回结构（简化）：
