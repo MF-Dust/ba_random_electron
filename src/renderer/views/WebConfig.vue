@@ -35,7 +35,7 @@
 早濑优香
 小鸟游星野
 空崎日奈"
-                    @input="syncTextToList"
+                    @input="scheduleTextSync"
                   ></textarea>
                 </div>
               </div>
@@ -141,11 +141,6 @@
 
             <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
               <p class="desc">老师注意！这些配置涉及程序基本运行。正常情况下，老师是不需要调整这里的配置的哦~</p>
-              <label>
-                Web配置界面的端口（1-65535）
-                <input type="number" v-model.number="config.webConfig.port" min="1" max="65535" required />
-              </label>
-
               <div class="admin-block always-top-block">
                 <p class="admin-title">管理员置顶增强（Windows）</p>
                 <label class="inline">
@@ -214,8 +209,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import axios from 'axios'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { appApi } from '../tauriApi'
 
 const tabs = ['list', 'students', 'floating', 'pickCount', 'web']
 const activeTab = ref('list')
@@ -228,7 +223,6 @@ const switchTab = (tab) => {
   activeTab.value = tab
 }
 
-const apiBase = '/api'
 const releasePageUrl = 'https://github.com/Yun-Hydrogen/ba_random_electron/releases/latest'
 
 const logs = ref([])
@@ -258,8 +252,7 @@ const checkUpdate = async () => {
   }
 
   try {
-    const response = await axios.get(`${apiBase}/check-update`)
-    const result = response.data
+    const result = await appApi.checkUpdate()
     if (result && Array.isArray(result.debug)) {
       result.debug.forEach((line) => addLog('info', `更新调试: ${line}`))
     }
@@ -283,18 +276,8 @@ const checkUpdate = async () => {
     }
   } catch (error) {
     console.error('检查更新失败:', error)
-    const status = error && error.response ? `${error.response.status} ${error.response.statusText}` : '未知错误'
-    const url = error && error.config && error.config.url ? error.config.url : ''
-    const code = error && error.code ? String(error.code) : ''
     const message = error && error.message ? String(error.message) : ''
-    const axiosFlag = error && error.isAxiosError ? 'axios' : ''
-    addLog(
-      'error',
-      `检查更新失败: ${status}${code ? ` | code=${code}` : ''}${message ? ` | ${message}` : ''}${axiosFlag ? ` | ${axiosFlag}` : ''}${url ? ` | ${url}` : ''}`
-    )
-    if (!error || !error.response) {
-      addLog('warn', '没有拿到响应对象，可能是网络/跨域/被拦截')
-    }
+    addLog('error', `检查更新失败${message ? `: ${message}` : ''}`)
     updateState.value = {
       loading: false,
       status: 'error',
@@ -306,7 +289,7 @@ const checkUpdate = async () => {
   }
 }
 let logSeed = 0
-let logSource = null
+let removeLogListener = null
 
 const addLog = (level, text, timeOverride) => {
   const time = timeOverride || new Date().toLocaleTimeString('zh-CN', { hour12: false })
@@ -316,22 +299,29 @@ const addLog = (level, text, timeOverride) => {
   }
 }
 
-const startLogStream = () => {
-  if (logSource) {
-    logSource.close()
+const startLogStream = async () => {
+  if (typeof removeLogListener === 'function') {
+    removeLogListener()
   }
 
-  logSource = new EventSource(`${apiBase}/logs`)
-  logSource.onmessage = (event) => {
+  try {
+    const existingLogs = await appApi.getLogs()
+    existingLogs.forEach((entry) => {
+      const time = entry.time
+        ? new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })
+        : undefined
+      addLog(entry.level || 'info', entry.text || '', time)
+    })
+  } catch (_error) {}
+
+  removeLogListener = appApi.onLogEntry((entry) => {
     try {
-      const entry = JSON.parse(event.data)
       const time = entry.time
         ? new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })
         : undefined
       addLog(entry.level || 'info', entry.text || '', time)
     } catch (_error) {}
-  }
-  logSource.onerror = () => {}
+  })
 }
 
 const config = ref({
@@ -365,8 +355,13 @@ const config = ref({
 })
 
 const rawListText = ref('')
+let textSyncTimer = null
 
 const syncTextToList = () => {
+  if (textSyncTimer) {
+    window.clearTimeout(textSyncTimer)
+    textSyncTimer = null
+  }
   const names = rawListText.value
     .split(/[\r\n]+/)
     .flatMap(line => line.split(','))
@@ -382,7 +377,20 @@ const syncTextToList = () => {
   }))
 }
 
+const scheduleTextSync = () => {
+  if (textSyncTimer) {
+    window.clearTimeout(textSyncTimer)
+  }
+  textSyncTimer = window.setTimeout(() => {
+    syncTextToList()
+  }, 120)
+}
+
 const syncListToText = () => {
+  if (textSyncTimer) {
+    window.clearTimeout(textSyncTimer)
+    textSyncTimer = null
+  }
   rawListText.value = config.value.studentList.map(s => s.name).join('\n')
 }
 
@@ -422,25 +430,24 @@ const maybeNumber = (value) => {
 
 const fetchConfig = async () => {
   try {
-    const response = await axios.get(`${apiBase}/config`)
-    config.value = response.data
+    config.value = await appApi.getConfig()
     rawListText.value = (config.value.studentList || []).map(s => s.name).join('\n')
     applyDefaultAutoStartPath()
     addLog('info', '配置已加载')
   } catch (error) {
     console.error('加载配置失败:', error)
-    addLog('error', '加载配置失败，请检查服务是否启动')
+    addLog('error', '加载配置失败，请检查应用后端是否启动')
     window.alert('配置页面初始化失败。')
   }
 }
 
 const fetchAppInfo = async () => {
   try {
-    const response = await axios.get(`${apiBase}/app-info`)
-    isDebugMode.value = Boolean(response.data && response.data.isDebugMode)
-    isAdmin.value = Boolean(response.data && response.data.isAdmin)
-    appVersion.value = response.data && response.data.version ? response.data.version : '0.0.0'
-    defaultExePath.value = response.data && response.data.exePath ? response.data.exePath : ''
+    const response = await appApi.getAppInfo()
+    isDebugMode.value = Boolean(response && response.isDebugMode)
+    isAdmin.value = Boolean(response && response.isAdmin)
+    appVersion.value = response && response.version ? response.version : '0.0.0'
+    defaultExePath.value = response && response.exePath ? response.exePath : ''
     applyDefaultAutoStartPath()
   } catch (_error) {
     isDebugMode.value = false
@@ -482,7 +489,7 @@ const saveConfig = async () => {
         gachaSoundVolume: Number(config.value.pickResultDialog.gachaSoundVolume)
       },
       webConfig: {
-        port: Number(config.value.webConfig.port),
+        port: Number(config.value.webConfig.port || 21219),
         adminTopmostEnabled: Boolean(config.value.webConfig.adminTopmostEnabled),
         adminAutoStartEnabled: Boolean(config.value.webConfig.adminAutoStartEnabled),
         adminAutoStartPath: String(config.value.webConfig.adminAutoStartPath || ''),
@@ -490,7 +497,7 @@ const saveConfig = async () => {
       }
     }
 
-    await axios.post(`${apiBase}/config`, payload)
+    await appApi.saveConfig(payload)
     addLog('success', '配置已保存并生效')
     window.alert('配置已保存并生效。')
   } catch (error) {
@@ -502,12 +509,12 @@ const saveConfig = async () => {
 
 const requestAdminElevation = async () => {
   try {
-    const response = await axios.post(`${apiBase}/admin/elevate`)
-    addLog('info', response.data?.message || '已发送管理员权限请求')
-    window.alert(response.data?.message || '已发送管理员权限请求。')
+    const response = await appApi.requestAdminElevation()
+    addLog(response.ok ? 'info' : 'error', response.message || '已发送管理员权限请求')
+    window.alert(response.message || '已发送管理员权限请求。')
   } catch (error) {
     console.error('申请管理员权限失败:', error)
-    const message = error?.response?.data?.message || '申请管理员权限失败'
+    const message = error?.message || '申请管理员权限失败'
     addLog('error', message)
     window.alert(`${message}，请查看日志。`)
   }
@@ -524,9 +531,9 @@ const createAdminStartupTask = async () => {
       window.alert('请先填写可执行文件路径。')
       return
     }
-    const response = await axios.post(`${apiBase}/task/create-admin-startup`, payload)
-    addLog('success', response.data?.message || '计划任务已创建或更新')
-    window.alert(response.data?.message || '计划任务已创建或更新。')
+    const response = await appApi.createAdminStartupTask(payload.exePath, payload.taskName)
+    addLog(response.ok ? 'success' : 'error', response.message || '计划任务已创建或更新')
+    window.alert(response.message || '计划任务已创建或更新。')
   } catch (error) {
     console.error('创建计划任务失败:', error)
     addLog('error', '创建计划任务失败')
@@ -538,6 +545,16 @@ onMounted(() => {
   fetchConfig()
   startLogStream()
   fetchAppInfo()
+})
+
+onBeforeUnmount(() => {
+  if (textSyncTimer) {
+    window.clearTimeout(textSyncTimer)
+    textSyncTimer = null
+  }
+  if (typeof removeLogListener === 'function') {
+    removeLogListener()
+  }
 })
 </script>
 

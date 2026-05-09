@@ -9,8 +9,6 @@
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
       @pointercancel="handlePointerCancel"
-      @pointerenter="handlePointerEnter"
-      @pointerleave="handlePointerLeave"
       title="抽取"
     >
       <img src="/image/random.svg" alt="随机抽取" draggable="false" />
@@ -82,8 +80,6 @@ const textStyle = computed(() => {
 const pointerDown = ref(false)
 const activePointerId = ref(null)
 const isDragging = ref(false)
-const isHovering = ref(false)
-const lastPointerType = ref('mouse')
 const startGlobalX = ref(0)
 const startGlobalY = ref(0)
 const pendingDx = ref(0)
@@ -128,33 +124,11 @@ function cancelScheduledMove() {
   }
 }
 
-function updateIgnoreMouse() {
-  if (!window.floatingButtonApi || !window.floatingButtonApi.setIgnoreMouseEvents) return
-  const shouldCapture = lastPointerType.value !== 'mouse' || pointerDown.value || isHovering.value
-  window.floatingButtonApi.setIgnoreMouseEvents(!shouldCapture)
-}
-
-function handlePointerEnter(event) {
-  if (event.pointerType === 'mouse') {
-    isHovering.value = true
-    updateIgnoreMouse()
-  }
-}
-
-function handlePointerLeave(event) {
-  if (event.pointerType === 'mouse') {
-    isHovering.value = false
-    updateIgnoreMouse()
-  }
-}
-
 function handlePointerDown(event) {
   if (event.pointerType === 'mouse' && event.button !== 0) return
-  lastPointerType.value = event.pointerType || 'mouse'
   pointerDown.value = true
   activePointerId.value = event.pointerId
   isDragging.value = false
-  updateIgnoreMouse()
   const point = getGlobalPoint(event)
   startGlobalX.value = point.x
   startGlobalY.value = point.y
@@ -169,8 +143,6 @@ function handlePointerDown(event) {
 function handlePointerMove(event) {
   if (activePointerId.value !== event.pointerId) return
   if (!pointerDown.value || !window.floatingButtonApi) return
-
-  lastPointerType.value = event.pointerType || lastPointerType.value
 
   const point = getGlobalPoint(event)
   const dx = point.x - startGlobalX.value
@@ -193,8 +165,6 @@ function handlePointerUp(event) {
   if (activePointerId.value !== event.pointerId) return
   if (!pointerDown.value) return
 
-  lastPointerType.value = event.pointerType || lastPointerType.value
-
   if (isDragging.value) {
     if (window.floatingButtonApi) {
       cancelScheduledMove()
@@ -209,7 +179,6 @@ function handlePointerUp(event) {
   pointerDown.value = false
   activePointerId.value = null
   isDragging.value = false
-  updateIgnoreMouse()
   if (event.currentTarget && event.currentTarget.releasePointerCapture) {
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
@@ -217,7 +186,6 @@ function handlePointerUp(event) {
 
 function handlePointerCancel(event) {
   if (activePointerId.value !== null && activePointerId.value !== event.pointerId) return
-  lastPointerType.value = event.pointerType || lastPointerType.value
   if (isDragging.value && window.floatingButtonApi) {
     cancelScheduledMove()
     window.floatingButtonApi.endDrag()
@@ -225,7 +193,6 @@ function handlePointerCancel(event) {
   pointerDown.value = false
   activePointerId.value = null
   isDragging.value = false
-  updateIgnoreMouse()
 }
 </script>
 

@@ -190,7 +190,6 @@ watch(playMusic, async (enabled) => {
 
 onMounted(async () => {
   isLeaving.value = false
-  isDialogOpen.value = false
   stopAudio()
   await initConfig()
 
