@@ -235,6 +235,7 @@ const logs = ref([])
 const isDebugMode = ref(false)
 const isAdmin = ref(false)
 const appVersion = ref('0.0.0')
+const defaultExePath = ref('')
 const updateState = ref({
   loading: false,
   status: 'idle',
@@ -424,6 +425,7 @@ const fetchConfig = async () => {
     const response = await axios.get(`${apiBase}/config`)
     config.value = response.data
     rawListText.value = (config.value.studentList || []).map(s => s.name).join('\n')
+    applyDefaultAutoStartPath()
     addLog('info', '配置已加载')
   } catch (error) {
     console.error('加载配置失败:', error)
@@ -438,10 +440,20 @@ const fetchAppInfo = async () => {
     isDebugMode.value = Boolean(response.data && response.data.isDebugMode)
     isAdmin.value = Boolean(response.data && response.data.isAdmin)
     appVersion.value = response.data && response.data.version ? response.data.version : '0.0.0'
+    defaultExePath.value = response.data && response.data.exePath ? response.data.exePath : ''
+    applyDefaultAutoStartPath()
   } catch (_error) {
     isDebugMode.value = false
     isAdmin.value = false
     appVersion.value = '0.0.0'
+    defaultExePath.value = ''
+  }
+}
+
+const applyDefaultAutoStartPath = () => {
+  if (!config.value || !config.value.webConfig) return
+  if (!config.value.webConfig.adminAutoStartPath && defaultExePath.value) {
+    config.value.webConfig.adminAutoStartPath = defaultExePath.value
   }
 }
 
@@ -495,15 +507,17 @@ const requestAdminElevation = async () => {
     window.alert(response.data?.message || '已发送管理员权限请求。')
   } catch (error) {
     console.error('申请管理员权限失败:', error)
-    addLog('error', '申请管理员权限失败')
-    window.alert('申请管理员权限失败，请查看日志。')
+    const message = error?.response?.data?.message || '申请管理员权限失败'
+    addLog('error', message)
+    window.alert(`${message}，请查看日志。`)
   }
 }
 
 const createAdminStartupTask = async () => {
   try {
+    const fallbackPath = defaultExePath.value || ''
     const payload = {
-      exePath: String(config.value.webConfig.adminAutoStartPath || '').trim(),
+      exePath: String(config.value.webConfig.adminAutoStartPath || fallbackPath).trim(),
       taskName: String(config.value.webConfig.adminAutoStartTaskName || 'Blue Random (Admin)').trim()
     }
     if (!payload.exePath) {

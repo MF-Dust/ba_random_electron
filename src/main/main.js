@@ -155,6 +155,10 @@ function requestAdminRelaunch() {
   }
 }
 
+function getDefaultExePath() {
+  return app.getPath('exe');
+}
+
 function createAdminStartupTask({ taskName, exePath, runAsUser }) {
   if (!IS_WINDOWS) {
     return { ok: false, message: '仅支持 Windows 计划任务。' };
@@ -722,7 +726,8 @@ function createConfigServerRequestHandler() {
       return sendJson(res, 200, {
         version: app.getVersion(),
         isDebugMode,
-        isAdmin: isProcessElevated()
+        isAdmin: isProcessElevated(),
+        exePath: getDefaultExePath()
       });
     }
 
@@ -808,14 +813,16 @@ function createConfigServerRequestHandler() {
         return sendJson(res, 200, { ok: true, message: '已在管理员权限下运行。' });
       }
 
-      sendJson(res, 200, { ok: true, message: '即将请求管理员权限并重启。' });
+      const result = requestAdminRelaunch();
+      if (!result.ok) {
+        return sendJson(res, 400, result);
+      }
+
+      sendJson(res, 200, result);
       setTimeout(() => {
-        const result = requestAdminRelaunch();
-        if (result.ok) {
-          isQuitting = true;
-          app.exit(0);
-        }
-      }, 120);
+        isQuitting = true;
+        app.exit(0);
+      }, 150);
       return;
     }
 
