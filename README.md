@@ -25,8 +25,8 @@
 
 ## 项目目录结构 📁
 - `public/`  静态资源（图片、音效）
-- `src/renderer/`  前端渲染与页面
-- `src-tauri/`  Tauri/Rust 后端、窗口、托盘与打包配置
+- `src/`  前端渲染与页面
+- `src-tauri/`  Tauri/Rust 后端、窗口、托盘与打包配置；`src-tauri/src/` 按配置、命令、窗口、音频、抽取、更新、权限等职责拆分
 - 构建完成后，在 `src-tauri/target/release/bundle/` 目录中可找到安装包产物
 
 ## 配置说明 🧩
