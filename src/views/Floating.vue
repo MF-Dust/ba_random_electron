@@ -9,13 +9,13 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import FloatingButton from '../components/FloatingButton.vue'
-import { floatingButtonApi } from '../api/floatingButtonApi'
 
 const sizePx = ref(50)
 const transparencyPercent = ref(20)
 
 async function initConfig() {
-  const cfg = await floatingButtonApi.getConfig()
+  if (!window.floatingButtonApi) return
+  const cfg = await window.floatingButtonApi.getConfig()
   applyConfig(cfg)
 }
 
@@ -25,14 +25,18 @@ function applyConfig(cfg) {
 }
 
 function handleFloatingButtonClick() {
-  floatingButtonApi.onClick()
+  if (window.floatingButtonApi) {
+    window.floatingButtonApi.onClick()
+  }
 }
 
 onMounted(() => {
   initConfig()
-  removeConfigListener = floatingButtonApi.onConfigUpdated((cfg) => {
-    applyConfig(cfg)
-  })
+  if (window.floatingButtonApi && typeof window.floatingButtonApi.onConfigUpdated === 'function') {
+    removeConfigListener = window.floatingButtonApi.onConfigUpdated((cfg) => {
+      applyConfig(cfg)
+    })
+  }
 })
 
 let removeConfigListener = null

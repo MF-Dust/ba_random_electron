@@ -53,7 +53,7 @@ pub(crate) fn create_floating_window(
         .minimizable(false)
         .transparent(true)
         .shadow(false)
-        .skip_taskbar(!cfg!(debug_assertions))
+        .skip_taskbar(true)
         .always_on_top(config.floating_button.always_on_top);
 
     if let (Some(x), Some(y)) = (
