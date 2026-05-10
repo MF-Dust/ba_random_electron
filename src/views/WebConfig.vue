@@ -7,178 +7,46 @@
           <p class="hint">老师可以在这里配置 蔚蓝点名 的各项功能哦！</p>
         </div>
 
-      <div class="tabs">
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'list' }" @click="switchTab('list')">花名册导入</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'students' }" @click="switchTab('students')">花名册管理</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'floating' }" @click="switchTab('floating')">抽取悬浮按钮</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'pickCount' }" @click="switchTab('pickCount')">抽取动画</button>
-        <button type="button" class="tab-btn" :class="{ active: activeTab === 'web' }" @click="switchTab('web')">系统服务</button>
-      </div>
+        <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />
 
         <form id="config-form" @submit.prevent="saveConfig">
           <div class="tab-container">
             <transition :name="transitionName" mode="out-in">
               <div class="tab-content" v-if="activeTab === 'list'" key="list">
-                <div class="list-manager">
-                  <p class="desc">老师可以手动输入名单（每行一个），或者点击下方按钮导入CSV/TXT文件自动解析！</p>
-                  <div class="list-actions">
-                    <button type="button" class="upload-btn" @click="handleFileImport">
-                      <span>📂 导入文件</span>
-                    </button>
-                    <span class="count-badge">当前导入人数：{{ config.studentList.length }}</span>
-                  </div>
-                  <textarea 
-                    v-model="rawListText" 
-                    class="list-textarea" 
-                    placeholder="请输入名单，每行一个。例如：
-早濑优香
-小鸟游星野
-空崎日奈"
-                    @input="scheduleTextSync"
-                  ></textarea>
-                </div>
+                <StudentImportPanel
+                  v-model:raw-list-text="rawListText"
+                  :student-count="config.studentList.length"
+                  @schedule-sync="scheduleTextSync"
+                  @import-file="handleFileImport"
+                />
               </div>
 
-            <div class="tab-content" v-else-if="activeTab === 'students'" key="students">
-              <div class="student-manager">
-                <p class="desc">老师可以在这里管理当前名单中人员及抽取权重，默认权重为1.0。权重越高，被抽取到的概率越大!</p>
-                <label class="inline">
-                  <input type="checkbox" v-model="config.allowRepeatDraw" />
-                  是否允许重复抽取（加权真随机）
-                </label>
-                <div class="student-list table-wrapper">
-                  <div v-if="config.studentList.length === 0" class="empty-tips-text">暂时没有名单哦~请先在“名单导入”中输入。</div>
-                  <div v-if="config.studentList.length === 0" class="empty-tips-arona">
-                  <img v-if="config.studentList.length === 0" src="/image/Arona_Empty.webp" alt="Arona Empty" class="empty-tips-arona-img" />
-                  </div>
-                  <table class="student-table" v-else>
-                    <thead>
-                      <tr>
-                        <th class="col-name">学生姓名</th>
-                        <th class="col-weight">权重 (0.0 - 2.0)</th>
-                        <th class="col-action">删除</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(student, index) in config.studentList" :key="`${student.name}-${index}`">
-                        <td class="col-name">{{ student.name }}</td>
-                        <td class="col-weight">
-                          <input 
-                            type="range" 
-                            class="weight-slider"
-                            v-model.number="student.weight" 
-                            min="0" max="2" step="0.1" 
-                            @change="syncListToText" 
-                          />
-                          <span class="weight-val">{{ Number(student.weight).toFixed(1) }}</span>
-                        </td>
-                        <td class="col-action">
-                          <button type="button" class="del-svg-btn" @click="removeStudent(index)" title="删除">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18"></line>
-                              <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div v-if="config.studentList.length > 0" class="student-actions">
-                  <button type="button" class="reset-btn" @click="resetWeights">重置所有学生的权重为1.0</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="tab-content" v-else-if="activeTab === 'floating'" key="floating">
-              <label>
-                按钮大小，为百分数值，以50px*50px为100（范围:0-1000）
-                <input type="number" v-model.number="config.floatingButton.sizePercent" min="0" max="1000" required />
-              </label>
-              <label>
-                透明度，为百分数值（范围:0-100）
-                <input type="number" v-model.number="config.floatingButton.transparencyPercent" min="0" max="100" required />
-              </label>
-              <label class="inline">
-                <input type="checkbox" v-model="config.floatingButton.alwaysOnTop" />
-                是否置顶
-              </label>
-              <div class="row">
-                <label>
-                  位置 X（以屏幕左上角为坐标原点，自动在退出时保存当前位置，留空恢复到默认位置）
-                  <input type="number" v-model.number="config.floatingButton.position.x" />
-                </label>
-                <label>
-                  位置 Y（以屏幕左上角为坐标原点，自动在退出时保存当前位置，留空恢复到默认位置）
-                  <input type="number" v-model.number="config.floatingButton.position.y" />
-                </label>
-              </div>
-            </div>
-
-            <div class="tab-content" v-else-if="activeTab === 'pickCount'" key="pickCount">
-              <label class="inline">
-                <input type="checkbox" v-model="config.pickCountDialog.defaultPlayMusic" />
-                是否默认播放抽取背景音乐（注意！教学环境下可能并不适宜）
-              </label>
-              <label class="inline">
-                <input type="checkbox" v-model="config.pickResultDialog.defaultPlayGachaSound" />
-                抽取动画默认播放抽取音效（注意！教学环境下可能并不适宜）
-              </label>
-              <label>
-                抽取音效响度（0.0 - 1.0）
-                <input type="number" v-model.number="config.pickResultDialog.gachaSoundVolume" min="0" max="1" step="0.05" required />
-              </label>
-              <label>
-                背景变暗程度，百分数值（0-100）
-                <input type="number" v-model.number="config.pickCountDialog.backgroundDarknessPercent" min="0" max="100" required />
-              </label>
-              <label>
-                默认人数（1-10）
-                <input type="number" v-model.number="config.pickCountDialog.defaultCount" min="1" max="10" required />
-              </label>
-            </div>
-
-            <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
-              <p class="desc">老师注意！这些配置涉及程序基本运行。正常情况下，老师是不需要调整这里的配置的哦~</p>
-              <div class="admin-block always-top-block">
-                <p class="admin-title">管理员置顶增强（Windows）</p>
-                <label class="inline">
-                  <input type="checkbox" v-model="config.webConfig.adminTopmostEnabled" />
-                  启用启动时申请管理员权限置顶
-                </label>
-                <p class="admin-hint">开启后程序启动会弹出 UAC 提示，以提升悬浮按钮的置顶能力。</p>
-                <button type="button" class="admin-btn" @click="requestAdminElevation">管理员身份重启</button>
+              <div class="tab-content" v-else-if="activeTab === 'students'" key="students">
+                <StudentManagerPanel
+                  :config="config"
+                  @sync-list-to-text="syncListToText"
+                  @remove-student="removeStudent"
+                  @reset-weights="resetWeights"
+                />
               </div>
 
-              <div class="admin-block auto-start-block">
-                <p class="admin-title">开机计划任务（管理员运行）</p>
-                <label>
-                  可执行文件路径（exe）
-                  <input type="text" v-model="config.webConfig.adminAutoStartPath" placeholder="例如：C:\\Program Files\\Blue Random\\Blue Random.exe" />
-                </label>
-                <label>
-                  任务名称
-                  <input type="text" v-model="config.webConfig.adminAutoStartTaskName" />
-                </label>
-                <p class="admin-hint">点击按钮后会创建/更新计划任务，登录时以管理员权限启动。</p>
-                <button type="button" class="admin-btn" @click="createAdminStartupTask">创建/更新计划任务</button>
+              <div class="tab-content" v-else-if="activeTab === 'floating'" key="floating">
+                <FloatingSettingsPanel :config="config" />
               </div>
-              
-              <div class="admin-block update-block">
-                <p class="admin-title">检查更新</p>
-                <div class="update-row">
-                  <button type="button" class="update-btn" :disabled="updateState.loading" @click="checkUpdate">
-                    {{ updateState.loading ? '检查中...' : '检查更新' }}
-                  </button>
-                  <span class="update-status" :class="`status-${updateState.status}`">{{ updateState.title }}</span>
-                </div>
-                <p v-if="updateState.detail" class="update-detail">{{ updateState.detail }}</p>
-                <div v-if="updateState.commitUrl || updateState.releaseUrl" class="update-links">
-                  <a v-if="updateState.commitUrl" :href="updateState.commitUrl" target="_blank" rel="noopener">查看提交</a>
-                  <a v-if="updateState.releaseUrl" :href="updateState.releaseUrl" target="_blank" rel="noopener">查看发布页</a>
-                </div>
+
+              <div class="tab-content" v-else-if="activeTab === 'pickCount'" key="pickCount">
+                <PickSettingsPanel :config="config" />
               </div>
-            </div>
+
+              <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
+                <SystemSettingsPanel
+                  :config="config"
+                  :update-state="updateState"
+                  @request-admin-elevation="requestAdminElevation"
+                  @create-admin-startup-task="createAdminStartupTask"
+                  @check-update="checkUpdate"
+                />
+              </div>
             </transition>
           </div>
 
@@ -186,380 +54,80 @@
         </form>
       </section>
 
-      <aside class="panel panel-right">
-        <div class="log-header">
-          <div class="log-title-row">
-            <h2>运行日志</h2>
-            <span v-if="isDebugMode" class="debug-badge">Dev</span>
-            <span v-if="isAdmin" class="admin-badge">管理员</span>
-            <span class="version-badge">版本 {{ appVersion }}</span>
-          </div>
-        </div>
-        <div class="log-list" role="log" aria-live="polite">
-          <div v-if="logs.length === 0" class="log-empty">暂无日志</div>
-          <div v-for="item in logs" :key="item.id" class="log-item" :class="`log-${item.level}`">
-            <span class="log-time">{{ item.time }}</span>
-            <span class="log-text">{{ item.text }}</span>
-          </div>
-        </div>
-      </aside>
+      <RuntimeLogPanel
+        :logs="logs"
+        :is-debug-mode="isDebugMode"
+        :is-admin="isAdmin"
+        :app-version="appVersion"
+      />
     </div>
   </main>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
+import ConfigTabs from '../components/config/ConfigTabs.vue'
+import FloatingSettingsPanel from '../components/config/FloatingSettingsPanel.vue'
+import PickSettingsPanel from '../components/config/PickSettingsPanel.vue'
+import RuntimeLogPanel from '../components/config/RuntimeLogPanel.vue'
+import StudentImportPanel from '../components/config/StudentImportPanel.vue'
+import StudentManagerPanel from '../components/config/StudentManagerPanel.vue'
+import SystemSettingsPanel from '../components/config/SystemSettingsPanel.vue'
 import { appApi } from '../tauriApi'
+import { useAppConfig } from '../composables/useAppConfig'
+import { useConfigTabs } from '../composables/useConfigTabs'
+import { useLogStream } from '../composables/useLogStream'
+import { useStudentListSync } from '../composables/useStudentListSync'
+import { useUpdateCheck } from '../composables/useUpdateCheck'
 
-const tabs = ['list', 'students', 'floating', 'pickCount', 'web']
-const activeTab = ref('list')
-const transitionName = ref('slide-left')
+const { activeTab, transitionName, switchTab } = useConfigTabs()
+const { logs, addLog, startLogStream, stopLogStream } = useLogStream(appApi)
+const {
+  config,
+  isDebugMode,
+  isAdmin,
+  appVersion,
+  fetchConfig,
+  fetchAppInfo,
+  saveConfig: saveCurrentConfig,
+  requestAdminElevation,
+  createAdminStartupTask
+} = useAppConfig(appApi, addLog)
 
-const switchTab = (tab) => {
-  const currentIndex = tabs.indexOf(activeTab.value)
-  const nextIndex = tabs.indexOf(tab)
-  transitionName.value = nextIndex > currentIndex ? 'slide-left' : 'slide-right'
-  activeTab.value = tab
-}
+const {
+  rawListText,
+  syncTextToList,
+  scheduleTextSync,
+  syncListToText,
+  removeStudent,
+  resetWeights,
+  handleFileImport,
+  stopTextSync
+} = useStudentListSync(appApi, config, addLog)
 
-const releasePageUrl = 'https://github.com/Yun-Hydrogen/ba_random_electron/releases/latest'
+const { updateState, checkUpdate } = useUpdateCheck(appApi, addLog)
 
-const logs = ref([])
-const isDebugMode = ref(false)
-const isAdmin = ref(false)
-const appVersion = ref('0.0.0')
-const defaultExePath = ref('')
-const updateState = ref({
-  loading: false,
-  status: 'idle',
-  title: '尚未检查更新',
-  detail: '',
-  commitUrl: '',
-  releaseUrl: ''
-})
-
-
-const checkUpdate = async () => {
-  addLog('info', '开始检查更新...')
-  updateState.value = {
-    loading: true,
-    status: 'loading',
-    title: '正在检查更新...',
-    detail: '',
-    commitUrl: '',
-    releaseUrl: ''
-  }
-
-  try {
-    const result = await appApi.checkUpdate()
-    if (result && Array.isArray(result.debug)) {
-      result.debug.forEach((line) => addLog('info', `更新调试: ${line}`))
-    }
-
-    updateState.value = {
-      loading: false,
-      status: result.status || 'error',
-      title: result.title || '检查更新失败',
-      detail: result.detail || '请检查网络或稍后再试。',
-      commitUrl: result.commitUrl || '',
-      releaseUrl: result.releaseUrl || releasePageUrl
-    }
-    if (result.status === 'update') {
-      addLog('success', '发现新版本')
-    } else if (result.status === 'ok') {
-      addLog('success', '已是最新版本')
-    } else if (result.status === 'easter') {
-      addLog('info', '本地版本高于远端版本')
-    } else {
-      addLog('error', result.detail || '检查更新失败')
-    }
-  } catch (error) {
-    console.error('检查更新失败:', error)
-    const message = error && error.message ? String(error.message) : ''
-    addLog('error', `检查更新失败${message ? `: ${message}` : ''}`)
-    updateState.value = {
-      loading: false,
-      status: 'error',
-      title: '检查更新失败',
-      detail: '请检查网络或稍后再试。',
-      commitUrl: '',
-      releaseUrl: releasePageUrl
-    }
-  }
-}
-let logSeed = 0
-let removeLogListener = null
-
-const addLog = (level, text, timeOverride) => {
-  const time = timeOverride || new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  logs.value.push({ id: `${Date.now()}-${logSeed++}`, level, text, time })
-  if (logs.value.length > 200) {
-    logs.value.splice(0, logs.value.length - 200)
-  }
-}
-
-const startLogStream = async () => {
-  if (typeof removeLogListener === 'function') {
-    removeLogListener()
-  }
-
-  try {
-    const existingLogs = await appApi.getLogs()
-    existingLogs.forEach((entry) => {
-      const time = entry.time
-        ? new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })
-        : undefined
-      addLog(entry.level || 'info', entry.text || '', time)
-    })
-  } catch (_error) {}
-
-  removeLogListener = appApi.onLogEntry((entry) => {
-    try {
-      const time = entry.time
-        ? new Date(entry.time).toLocaleTimeString('zh-CN', { hour12: false })
-        : undefined
-      addLog(entry.level || 'info', entry.text || '', time)
-    } catch (_error) {}
-  })
-}
-
-const config = ref({
-  studentList: [],
-  allowRepeatDraw: true,
-  floatingButton: {
-    sizePercent: 100,
-    transparencyPercent: 100,
-    alwaysOnTop: true,
-    position: {
-      x: null,
-      y: null
-    }
-  },
-  pickCountDialog: {
-    defaultPlayMusic: true,
-    backgroundDarknessPercent: 50,
-    defaultCount: 1
-  },
-  pickResultDialog: {
-    defaultPlayGachaSound: true,
-    gachaSoundVolume: 0.6
-  },
-  webConfig: {
-    port: 21219,
-    adminTopmostEnabled: false,
-    adminAutoStartEnabled: false,
-    adminAutoStartPath: '',
-    adminAutoStartTaskName: 'Blue Random (Admin)'
-  }
-})
-
-const rawListText = ref('')
-let textSyncTimer = null
-let textSyncRunId = 0
-
-const syncTextToList = async ({ updateText = false } = {}) => {
-  if (textSyncTimer) {
-    window.clearTimeout(textSyncTimer)
-    textSyncTimer = null
-  }
-  const runId = ++textSyncRunId
-  const result = await appApi.parseStudentListText(rawListText.value, config.value.studentList || [])
-  if (runId !== textSyncRunId) {
-    return
-  }
-
-  config.value.studentList = result.studentList || []
-  if (updateText) {
-    rawListText.value = result.normalizedText || ''
-  }
-}
-
-const scheduleTextSync = () => {
-  if (textSyncTimer) {
-    window.clearTimeout(textSyncTimer)
-  }
-  textSyncTimer = window.setTimeout(() => {
-    syncTextToList().catch((error) => {
-      console.error('同步名单失败:', error)
-      addLog('error', '同步名单失败，请检查输入内容')
-    })
-  }, 120)
-}
-
-const syncListToText = () => {
-  if (textSyncTimer) {
-    window.clearTimeout(textSyncTimer)
-    textSyncTimer = null
-  }
-  textSyncRunId += 1
-  rawListText.value = config.value.studentList.map(s => s.name).join('\n')
-}
-
-const removeStudent = (index) => {
-  config.value.studentList.splice(index, 1)
-  syncListToText()
-}
-
-const resetWeights = () => {
-  config.value.studentList.forEach(s => { s.weight = 1.0 })
-}
-
-const handleFileImport = async () => {
-  try {
-    const result = await appApi.importStudentListFromFile(config.value.studentList || [])
-    if (!result) return
-    config.value.studentList = result.studentList
-    rawListText.value = result.normalizedText
-    addLog('info', `已导入 ${result.studentList.length} 名学生`)
-  } catch (error) {
-    console.error('导入名单失败:', error)
-    addLog('error', '导入名单失败，请检查文件内容')
-  }
-}
-
-const maybeNumber = (value) => {
-  if (value === '' || value === null || value === undefined) return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-const fetchConfig = async () => {
-  try {
-    config.value = await appApi.getConfig()
-    rawListText.value = (config.value.studentList || []).map(s => s.name).join('\n')
-    applyDefaultAutoStartPath()
-    addLog('info', '配置已加载')
-  } catch (error) {
-    console.error('加载配置失败:', error)
-    addLog('error', '加载配置失败，请检查应用后端是否启动')
-    window.alert('配置页面初始化失败。')
-  }
-}
-
-const fetchAppInfo = async () => {
-  try {
-    const response = await appApi.getAppInfo()
-    isDebugMode.value = Boolean(response && response.isDebugMode)
-    isAdmin.value = Boolean(response && response.isAdmin)
-    appVersion.value = response && response.version ? response.version : '0.0.0'
-    defaultExePath.value = response && response.exePath ? response.exePath : ''
-    applyDefaultAutoStartPath()
-  } catch (_error) {
-    isDebugMode.value = false
-    isAdmin.value = false
-    appVersion.value = '0.0.0'
-    defaultExePath.value = ''
-  }
-}
-
-const applyDefaultAutoStartPath = () => {
-  if (!config.value || !config.value.webConfig) return
-  if (!config.value.webConfig.adminAutoStartPath && defaultExePath.value) {
-    config.value.webConfig.adminAutoStartPath = defaultExePath.value
-  }
-}
-
-const saveConfig = async () => {
-  try {
-    await syncTextToList({ updateText: true })
-    const payload = {
-      studentList: config.value.studentList,
-      allowRepeatDraw: Boolean(config.value.allowRepeatDraw),
-      floatingButton: {
-        sizePercent: Number(config.value.floatingButton.sizePercent),
-        transparencyPercent: Number(config.value.floatingButton.transparencyPercent),
-        alwaysOnTop: Boolean(config.value.floatingButton.alwaysOnTop),
-        position: {
-          x: maybeNumber(config.value.floatingButton.position.x),
-          y: maybeNumber(config.value.floatingButton.position.y)
-        }
-      },
-      pickCountDialog: {
-        defaultPlayMusic: Boolean(config.value.pickCountDialog.defaultPlayMusic),
-        backgroundDarknessPercent: Number(config.value.pickCountDialog.backgroundDarknessPercent),
-        defaultCount: Number(config.value.pickCountDialog.defaultCount)
-      },
-      pickResultDialog: {
-        defaultPlayGachaSound: Boolean(config.value.pickResultDialog.defaultPlayGachaSound),
-        gachaSoundVolume: Number(config.value.pickResultDialog.gachaSoundVolume)
-      },
-      webConfig: {
-        port: Number(config.value.webConfig.port || 21219),
-        adminTopmostEnabled: Boolean(config.value.webConfig.adminTopmostEnabled),
-        adminAutoStartEnabled: Boolean(config.value.webConfig.adminAutoStartEnabled),
-        adminAutoStartPath: String(config.value.webConfig.adminAutoStartPath || ''),
-        adminAutoStartTaskName: String(config.value.webConfig.adminAutoStartTaskName || 'Blue Random (Admin)')
-      }
-    }
-
-    await appApi.saveConfig(payload)
-    addLog('success', '配置已保存并生效')
-    window.alert('配置已保存并生效。')
-  } catch (error) {
-    console.error('保存配置失败:', error)
-    addLog('error', '保存失败，请检查输入内容')
-    window.alert('保存失败，请检查输入内容。')
-  }
-}
-
-const requestAdminElevation = async () => {
-  try {
-    const response = await appApi.requestAdminElevation()
-    addLog(response.ok ? 'info' : 'error', response.message || '已发送管理员权限请求')
-    window.alert(response.message || '已发送管理员权限请求。')
-  } catch (error) {
-    console.error('申请管理员权限失败:', error)
-    const message = error?.message || '申请管理员权限失败'
-    addLog('error', message)
-    window.alert(`${message}，请查看日志。`)
-  }
-}
-
-const createAdminStartupTask = async () => {
-  try {
-    const fallbackPath = defaultExePath.value || ''
-    const payload = {
-      exePath: String(config.value.webConfig.adminAutoStartPath || fallbackPath).trim(),
-      taskName: String(config.value.webConfig.adminAutoStartTaskName || 'Blue Random (Admin)').trim()
-    }
-    if (!payload.exePath) {
-      window.alert('请先填写可执行文件路径。')
-      return
-    }
-    const response = await appApi.createAdminStartupTask(payload.exePath, payload.taskName)
-    addLog(response.ok ? 'success' : 'error', response.message || '计划任务已创建或更新')
-    window.alert(response.message || '计划任务已创建或更新。')
-  } catch (error) {
-    console.error('创建计划任务失败:', error)
-    addLog('error', '创建计划任务失败')
-    window.alert('创建计划任务失败，请查看日志。')
-  }
-}
+const saveConfig = () => saveCurrentConfig(syncTextToList, rawListText)
 
 onMounted(() => {
-  fetchConfig()
+  fetchConfig(rawListText)
   startLogStream()
   fetchAppInfo()
 })
 
 onBeforeUnmount(() => {
-  if (textSyncTimer) {
-    window.clearTimeout(textSyncTimer)
-    textSyncTimer = null
-  }
-  if (typeof removeLogListener === 'function') {
-    removeLogListener()
-  }
+  stopTextSync()
+  stopLogStream()
 })
 </script>
 
-<style scoped>
-* {
+<style>
+.page * {
   box-sizing: border-box;
 }
 
-:global(html),
-:global(body) {
+html,
+body {
   height: 100%;
   margin: 0;
   overflow: hidden;
@@ -590,7 +158,7 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-.panel {
+.page .panel {
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.92), rgba(245, 248, 255, 0.88));
   border: 1px solid rgba(142, 175, 210, 0.4);
   border-radius: 16px;
@@ -599,21 +167,21 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(18px);
 }
 
-.panel-left {
+.page .panel-left {
   min-height: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.panel-right {
+.page .panel-right {
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
 }
 
-h1 {
+.page h1 {
   margin: 0;
   font-size: 30px;
   letter-spacing: 1px;
@@ -629,7 +197,7 @@ h1 {
   text-align: left;
 }
 
-.tabs {
+.page .tabs {
   display: flex;
   margin: 20px 0 18px;
   border-bottom: 1px solid rgba(120, 148, 185, 0.4);
@@ -639,7 +207,7 @@ h1 {
   gap: 6px;
 }
 
-.tab-btn {
+.page .tab-btn {
   flex: 1;
   background: transparent;
   border: none;
@@ -652,17 +220,17 @@ h1 {
   border-radius: 10px;
 }
 
-.tab-btn:hover {
+.page .tab-btn:hover {
   background: rgba(220, 232, 249, 0.7);
 }
 
-.tab-btn.active {
+.page .tab-btn.active {
   color: #ffffff;
   background: rgba(7, 105, 241, 0.92);
   box-shadow: 0 8px 18px rgba(16, 32, 59, 0.12);
 }
 
-#config-form {
+.page #config-form {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -690,7 +258,7 @@ h1 {
   gap: 12px;
 }
 
-.desc {
+.page .desc {
   margin: 0;
   font-size: 14px;
   color: #4a6c94;
@@ -749,23 +317,23 @@ h1 {
   box-shadow: 0 0 0 3px rgba(90, 137, 200, 0.2);
 }
 
-label {
+.page label {
   display: block;
   margin: 10px 0;
   font-size: 14px;
   color: #2a4365;
 }
 
-.inline {
+.page .inline {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-input[type="number"],
-input[type="text"],
-textarea,
-select {
+.page input[type="number"],
+.page input[type="text"],
+.page textarea,
+.page select {
   width: 100%;
   margin-top: 6px;
   border: 1px solid rgba(122, 151, 190, 0.55);
@@ -777,38 +345,38 @@ select {
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
 }
 
-input[type="number"]:focus,
-input[type="text"]:focus,
-textarea:focus,
-select:focus {
+.page input[type="number"]:focus,
+.page input[type="text"]:focus,
+.page textarea:focus,
+.page select:focus {
   outline: none;
   border-color: rgba(45, 110, 210, 0.8);
   box-shadow: 0 0 0 4px rgba(74, 130, 220, 0.18);
   background: #ffffff;
 }
 
-input[type="number"]:disabled,
-input[type="text"]:disabled,
-textarea:disabled,
-select:disabled {
+.page input[type="number"]:disabled,
+.page input[type="text"]:disabled,
+.page textarea:disabled,
+.page select:disabled {
   opacity: 0.7;
   cursor: not-allowed;
   background: rgba(235, 241, 249, 0.7);
 }
 
-input::placeholder,
-textarea::placeholder {
+.page input::placeholder,
+.page textarea::placeholder {
   color: rgba(90, 113, 145, 0.7);
 }
 
-input[type="checkbox"] {
+.page input[type="checkbox"] {
   width: 18px;
   height: 18px;
   accent-color: #2a6bff;
   border-radius: 5px;
 }
 
-.row {
+.page .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;

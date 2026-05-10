@@ -1,178 +1,22 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { usePickCountDialog } from '../composables/usePickCountDialog'
 
-function clampInt(value, min, max, fallback) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return fallback
-  const rounded = Math.round(n)
-  return Math.max(min, Math.min(max, rounded))
-}
-
-const count = ref(1)
-const playMusic = ref(false)
-const isLeaving = ref(false)
-const backgroundDarknessPercent = ref(50)
-const isDialogOpen = ref(false)
-const isInitializing = ref(false)
-
-const MIN_COUNT = 1
-const MAX_COUNT = 10
-const EXIT_ANIMATION_MS = 400
-
-let removeOnOpenListener = null
-let removeStopListener = null
-const canDecrease = computed(() => count.value > MIN_COUNT)
-const canIncrease = computed(() => count.value < MAX_COUNT)
-
-const overlayStyle = computed(() => {
-  const darkness = Math.max(0, Math.min(100, backgroundDarknessPercent.value))
-  const alpha = darkness / 100
-
-  return {
-    backgroundColor: `rgba(0, 0, 0, ${alpha})`
-  }
-})
-
-async function initConfig() {
-  isInitializing.value = true
-  if (!window.pickCountApi) return
-  const cfg = await window.pickCountApi.getConfig()
-
-  count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, MIN_COUNT)
-  playMusic.value = Boolean(cfg.defaultPlayMusic)
-  backgroundDarknessPercent.value = clampInt(cfg.backgroundDarknessPercent, 0, 100, 50)
-  isInitializing.value = false
-}
-
-function increaseCount() {
-  if (count.value < MAX_COUNT) {
-    playClickSound()
-    count.value += 1
-  }
-}
-
-function decreaseCount() {
-  if (count.value > MIN_COUNT) {
-    playClickSound()
-    count.value -= 1
-  }
-}
-
-function setMinCount() {
-  if (count.value !== MIN_COUNT) {
-    playClickSound()
-    count.value = MIN_COUNT
-  }
-}
-
-function setMaxCount() {
-  if (count.value !== MAX_COUNT) {
-    playClickSound()
-    count.value = MAX_COUNT
-  }
-}
-
-function stopAudio() {
-  window.audioApi?.stopBgm?.().catch(() => {})
-}
-
-async function playBgm() {
-  await window.audioApi?.playBgm?.()
-}
-
-async function resetDialogStateFromConfig(shouldPlayBgm) {
-  isLeaving.value = false
-  stopAudio()
-  await initConfig()
-
-  if (shouldPlayBgm && playMusic.value) {
-    try {
-      await playBgm()
-    } catch (error) {
-      console.warn('Failed to play bgm on open:', error)
-    }
-  }
-}
-
-function playClickSound() {
-  window.audioApi?.playClickSound?.().catch(() => {})
-}
-
-function beginExit(action) {
-  if (isLeaving.value) {
-    return
-  }
-
-  isLeaving.value = true
-  isDialogOpen.value = false
-  playClickSound()
-  window.setTimeout(() => {
-    if (action !== 'confirm') {
-      stopAudio()
-    }
-    if (!window.pickCountApi) {
-      return
-    }
-
-    if (action === 'confirm') {
-      window.pickCountApi.confirm(count.value, playMusic.value)
-    } else {
-      window.pickCountApi.cancel()
-    }
-  }, EXIT_ANIMATION_MS)
-}
-
-function handleCancel() {
-  beginExit('cancel')
-}
-
-function handleConfirm() {
-  beginExit('confirm')
-}
-
-watch(playMusic, async (enabled) => {
-  if (!isDialogOpen.value || isInitializing.value) {
-    return
-  }
-  if (enabled) {
-    try {
-      await playBgm()
-    } catch (error) {
-      console.warn('Failed to play bgm:', error)
-    }
-  } else {
-    stopAudio()
-  }
-})
-
-onMounted(async () => {
-  isLeaving.value = false
-  stopAudio()
-  await initConfig()
-
-  if (window.pickCountApi && typeof window.pickCountApi.onOpen === 'function') {
-    removeOnOpenListener = window.pickCountApi.onOpen(async () => {
-      isDialogOpen.value = true
-      await resetDialogStateFromConfig(true)
-    })
-  }
-
-  if (window.pickCountApi && typeof window.pickCountApi.onStopBgm === 'function') {
-    removeStopListener = window.pickCountApi.onStopBgm(() => {
-      stopAudio()
-    })
-  }
-})
-
-onBeforeUnmount(() => {
-  stopAudio()
-  if (typeof removeOnOpenListener === 'function') {
-    removeOnOpenListener()
-  }
-  if (typeof removeStopListener === 'function') {
-    removeStopListener()
-  }
-})
+const {
+  MIN_COUNT,
+  MAX_COUNT,
+  count,
+  playMusic,
+  isLeaving,
+  canDecrease,
+  canIncrease,
+  overlayStyle,
+  increaseCount,
+  decreaseCount,
+  setMinCount,
+  setMaxCount,
+  handleCancel,
+  handleConfirm
+} = usePickCountDialog()
 </script>
 
 <template>

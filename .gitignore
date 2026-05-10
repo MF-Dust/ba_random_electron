@@ -2,3 +2,11 @@
 /dist
 /src-tauri/gen
 /src-tauri/target
+
+# Local runtime/config overrides
+config.local.yml
+*.local.yml
+
+# Local AI assistant state
+/.claude
+CLAUDE.md
