@@ -11,7 +11,7 @@ pub(crate) fn setup_tray(app: &AppHandle) -> Result<(), String> {
         MenuItem::with_id(app, "quit", "退出", true, None::<&str>).map_err(|e| e.to_string())?;
     let menu = Menu::with_items(app, &[&config_item, &quit_item]).map_err(|e| e.to_string())?;
     let mut builder = TrayIconBuilder::new()
-        .tooltip("Blue Random")
+        .tooltip("KVRandom")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {

@@ -4,7 +4,7 @@ use std::process::Command;
 use crate::config::ADMIN_TASK_DEFAULT_NAME;
 use crate::models::ApiResult;
 
-const SINGLE_INSTANCE_MUTEX_NAME: &str = "Local\\com.hydrogenrua.blue-random.single-instance";
+const SINGLE_INSTANCE_MUTEX_NAME: &str = "Local\\com.mfdust.kvrandom.single-instance";
 pub(crate) struct SingleInstanceGuard(windows::Win32::Foundation::HANDLE);
 
 #[cfg(target_os = "windows")]

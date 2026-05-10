@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 use crate::utils::{clamp_f64, clamp_i32};
-pub(crate) const ADMIN_TASK_DEFAULT_NAME: &str = "Blue Random (Admin)";
+pub(crate) const ADMIN_TASK_DEFAULT_NAME: &str = "KVRandom (Admin)";
 pub(crate) const MIN_PICK_COUNT: i32 = 1;
 pub(crate) const MAX_PICK_COUNT: i32 = 10;
 

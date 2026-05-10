@@ -45,7 +45,7 @@ pub(crate) fn create_floating_window(
 
     let (width, height) = floating_window_size(config);
     let mut builder = WebviewWindowBuilder::new(app, "floating", route_url(""))
-        .title("Blue Random")
+        .title("KVRandom")
         .inner_size(width as f64, height as f64)
         .decorations(false)
         .resizable(false)
@@ -116,7 +116,7 @@ pub(crate) fn open_config_window(app: &AppHandle) -> Result<(), String> {
     }
 
     WebviewWindowBuilder::new(app, "config", route_url("/config"))
-        .title("Blue Random 配置")
+        .title("KVRandom 配置")
         .inner_size(1120.0, 760.0)
         .resizable(true)
         .build()

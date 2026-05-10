@@ -1,7 +1,7 @@
 {
-  "name": "blue-random",
+  "name": "kvrandom",
   "version": "26.05.3",
-  "description": "蔚蓝点名-仿《蔚蓝档案》学员招募的随机点名工具",
+  "description": "KVRandom - 随机点名工具",
   "author": "HydrogenRua",
   "scripts": {
     "dev": "tauri dev",

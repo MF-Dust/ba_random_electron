@@ -3,8 +3,8 @@
     <div class="layout">
       <section class="panel panel-left">
         <div class="header">
-          <h1>蔚蓝点名 Web配置页</h1>
-          <p class="hint">老师可以在这里配置 蔚蓝点名 的各项功能哦！</p>
+          <h1>KVRandom 配置页</h1>
+          <p class="hint">老师可以在这里配置 KVRandom 的各项功能哦！</p>
         </div>
 
         <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />

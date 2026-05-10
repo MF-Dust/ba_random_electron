@@ -39,7 +39,7 @@ fn compare_version(a: &str, b: &str) -> std::cmp::Ordering {
 fn http_client() -> &'static reqwest::Client {
     HTTP_CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .user_agent("Blue-Random")
+            .user_agent("KVRandom")
             .connect_timeout(Duration::from_secs(8))
             .timeout(Duration::from_secs(15))
             .build()
@@ -64,8 +64,8 @@ async fn fetch_text(
 }
 
 pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult {
-    let repo_owner = "Yun-Hydrogen";
-    let repo_name = "ba_random_electron";
+    let repo_owner = "MF-Dust";
+    let repo_name = "KVRandom";
     let mut debug = Vec::new();
     let release_api =
         format!("https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest");
@@ -121,7 +121,7 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
     let release_url = release
         .get("html_url")
         .and_then(Value::as_str)
-        .unwrap_or("https://github.com/Yun-Hydrogen/ba_random_electron/releases/latest")
+        .unwrap_or("https://github.com/MF-Dust/KVRandom/releases/latest")
         .to_string();
 
     let Some(version_asset) = version_asset else {

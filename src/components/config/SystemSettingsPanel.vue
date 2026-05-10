@@ -15,7 +15,7 @@
       <p class="admin-title">开机计划任务（管理员运行）</p>
       <label>
         可执行文件路径（exe）
-        <input type="text" v-model="config.webConfig.adminAutoStartPath" placeholder="例如：C:\\Program Files\\Blue Random\\Blue Random.exe" />
+        <input type="text" v-model="config.webConfig.adminAutoStartPath" placeholder="例如：C:\\Program Files\\KVRandom\\kvrandom.exe" />
       </label>
       <label>
         任务名称

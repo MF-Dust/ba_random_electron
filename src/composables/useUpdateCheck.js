@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-const releasePageUrl = 'https://github.com/Yun-Hydrogen/ba_random_electron/releases/latest'
+const releasePageUrl = 'https://github.com/MF-Dust/KVRandom/releases/latest'
 
 export function useUpdateCheck(appApi, addLog) {
   const updateState = ref({

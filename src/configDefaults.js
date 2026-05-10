@@ -1,4 +1,4 @@
-export const DEFAULT_ADMIN_TASK_NAME = 'Blue Random (Admin)'
+export const DEFAULT_ADMIN_TASK_NAME = 'KVRandom (Admin)'
 
 export const MIN_PICK_COUNT = 1
 export const MAX_PICK_COUNT = 10

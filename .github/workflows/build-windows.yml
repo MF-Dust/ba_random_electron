@@ -93,10 +93,10 @@ jobs:
           Get-ChildItem -Path "src-tauri/target/release/bundle/msi/*.msi" | Copy-Item -Destination "artifacts/"
           
           # Create Portable ZIP
-          $exePath = Get-ChildItem -Path "src-tauri/target/release/blue-random.exe" | Select-Object -First 1
+          $exePath = Get-ChildItem -Path "src-tauri/target/release/kvrandom.exe" | Select-Object -First 1
           if ($exePath) {
             $portableItems = @($exePath.FullName)
-            $dllPath = "src-tauri/target/release/blue_random_lib.dll"
+            $dllPath = "src-tauri/target/release/kvrandom_lib.dll"
             if (Test-Path $dllPath) {
               $portableItems += $dllPath
             }
@@ -104,7 +104,7 @@ jobs:
             if (Test-Path $resourcePath) {
               $portableItems += $resourcePath
             }
-            Compress-Archive -Path $portableItems -DestinationPath "artifacts/blue-random-windows-portable.zip"
+            Compress-Archive -Path $portableItems -DestinationPath "artifacts/kvrandom-windows-portable.zip"
           }
 
       - name: Upload package

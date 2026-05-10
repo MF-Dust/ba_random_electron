@@ -1,12 +1,12 @@
 [package]
-name = "blue-random"
+name = "kvrandom"
 version = "26.5.3"
-description = "Blue Random"
+description = "KVRandom"
 authors = ["HydrogenRua"]
 edition = "2021"
 
 [lib]
-name = "blue_random_lib"
+name = "kvrandom_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
