@@ -1,13 +1,16 @@
 use chrono::Utc;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
+use std::hash::{Hash, Hasher};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -20,6 +23,7 @@ const ADMIN_TASK_DEFAULT_NAME: &str = "Blue Random (Admin)";
 const LOG_BUFFER_LIMIT: usize = 600;
 const WEIGHT_BOOST_GAMMA: f64 = 1.5;
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+const SINGLE_INSTANCE_MUTEX_NAME: &str = "Local\\com.hydrogenrua.blue-random.single-instance";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -207,6 +211,13 @@ struct PickResultResetPayload {
     reason: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StudentListParseResult {
+    student_list: Vec<Student>,
+    normalized_text: String,
+}
+
 #[derive(Debug, Clone)]
 struct DragSession {
     start_x: i32,
@@ -215,32 +226,192 @@ struct DragSession {
     last_y: i32,
 }
 
+#[derive(Debug, Clone)]
+struct WeightedPool {
+    entries: Vec<(String, f64)>,
+    total_weight: f64,
+}
+
 struct RuntimeState {
     config: AppConfig,
+    weighted_pool_cache: Option<WeightedPool>,
     current_pick_results: Vec<PickedStudent>,
     pick_result_token: u64,
     drag_session: Option<DragSession>,
     floating_hidden_for_pick_count: bool,
     is_quitting: bool,
     logs: VecDeque<LogEntry>,
+    log_dedup: HashMap<u64, std::time::Instant>,
 }
 
 impl RuntimeState {
     fn new(config: AppConfig) -> Self {
         Self {
             config,
+            weighted_pool_cache: None,
             current_pick_results: Vec::new(),
             pick_result_token: 0,
             drag_session: None,
             floating_hidden_for_pick_count: false,
             is_quitting: false,
             logs: VecDeque::new(),
+            log_dedup: HashMap::new(),
         }
     }
 }
 
+enum AudioCommand {
+    PlayClick,
+    PlayBgm,
+    StopBgm,
+    PlayGacha(f32),
+    StopGacha,
+}
+
+#[derive(Clone)]
+struct AudioController {
+    tx: mpsc::Sender<AudioCommand>,
+}
+
+impl AudioController {
+    fn new(app: &AppHandle) -> Self {
+        let click_bytes = load_asset_bytes(app, "sound/button_click.wav");
+        let bgm_bytes = load_asset_bytes(app, "sound/bgm.mp3");
+        let gacha_bytes = load_asset_bytes(app, "sound/gacha_loading.ogg");
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || run_audio_thread(rx, click_bytes, bgm_bytes, gacha_bytes));
+        Self { tx }
+    }
+
+    fn send(&self, command: AudioCommand) -> Result<(), String> {
+        self.tx.send(command).map_err(|error| error.to_string())
+    }
+}
+
+fn run_audio_thread(
+    rx: mpsc::Receiver<AudioCommand>,
+    click_bytes: Vec<u8>,
+    bgm_bytes: Vec<u8>,
+    gacha_bytes: Vec<u8>,
+) {
+    let Ok((_stream, handle)) = OutputStream::try_default() else {
+        return;
+    };
+    let mut bgm_sink: Option<Sink> = None;
+    let mut gacha_sink: Option<Sink> = None;
+
+    while let Ok(command) = rx.recv() {
+        match command {
+            AudioCommand::PlayClick => {
+                play_audio_once(&handle, &click_bytes, 1.0);
+            }
+            AudioCommand::PlayBgm => {
+                if let Some(sink) = bgm_sink.take() {
+                    sink.stop();
+                }
+                bgm_sink = play_audio_loop(&handle, &bgm_bytes, 0.3);
+            }
+            AudioCommand::StopBgm => {
+                if let Some(sink) = bgm_sink.take() {
+                    sink.stop();
+                }
+            }
+            AudioCommand::PlayGacha(volume) => {
+                if let Some(sink) = gacha_sink.take() {
+                    sink.stop();
+                }
+                gacha_sink = play_audio_sink(&handle, &gacha_bytes, volume);
+            }
+            AudioCommand::StopGacha => {
+                if let Some(sink) = gacha_sink.take() {
+                    sink.stop();
+                }
+            }
+        }
+    }
+}
+
+fn decoder_from_bytes(bytes: &[u8]) -> Option<Decoder<Cursor<Vec<u8>>>> {
+    if bytes.is_empty() {
+        return None;
+    }
+    Decoder::new(Cursor::new(bytes.to_vec())).ok()
+}
+
+fn play_audio_once(handle: &OutputStreamHandle, bytes: &[u8], volume: f32) {
+    if let Some(sink) = play_audio_sink(handle, bytes, volume) {
+        sink.detach();
+    }
+}
+
+fn play_audio_sink(handle: &OutputStreamHandle, bytes: &[u8], volume: f32) -> Option<Sink> {
+    let sink = Sink::try_new(handle).ok()?;
+    let source = decoder_from_bytes(bytes)?;
+    sink.set_volume(volume.clamp(0.0, 1.0));
+    sink.append(source);
+    Some(sink)
+}
+
+fn play_audio_loop(handle: &OutputStreamHandle, bytes: &[u8], volume: f32) -> Option<Sink> {
+    let sink = Sink::try_new(handle).ok()?;
+    let source = decoder_from_bytes(bytes)?.repeat_infinite();
+    sink.set_volume(volume.clamp(0.0, 1.0));
+    sink.append(source);
+    Some(sink)
+}
+
 struct AppState {
     inner: Mutex<RuntimeState>,
+    audio: AudioController,
+    _single_instance_guard: SingleInstanceGuard,
+}
+
+#[cfg(target_os = "windows")]
+struct SingleInstanceGuard(windows::Win32::Foundation::HANDLE);
+
+#[cfg(target_os = "windows")]
+unsafe impl Send for SingleInstanceGuard {}
+
+#[cfg(target_os = "windows")]
+unsafe impl Sync for SingleInstanceGuard {}
+
+#[cfg(target_os = "windows")]
+impl Drop for SingleInstanceGuard {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = windows::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn acquire_single_instance_guard() -> Result<Option<SingleInstanceGuard>, String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
+    use windows::Win32::System::Threading::CreateMutexW;
+
+    let name = SINGLE_INSTANCE_MUTEX_NAME
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+
+    unsafe {
+        let handle = CreateMutexW(None, true, PCWSTR(name.as_ptr()))
+            .map_err(|error| format!("创建单实例锁失败: {error}"))?;
+        if GetLastError() == ERROR_ALREADY_EXISTS {
+            let _ = CloseHandle(handle);
+            return Ok(None);
+        }
+        Ok(Some(SingleInstanceGuard(handle)))
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+struct SingleInstanceGuard;
+
+#[cfg(not(target_os = "windows"))]
+fn acquire_single_instance_guard() -> Result<Option<SingleInstanceGuard>, String> {
+    Ok(Some(SingleInstanceGuard))
 }
 
 fn clamp_f64(value: f64, min: f64, max: f64, fallback: f64) -> f64 {
@@ -259,10 +430,45 @@ fn clamp_i32(value: i32, min: i32, max: i32, fallback: i32) -> i32 {
     }
 }
 
+fn load_asset_bytes(app: &AppHandle, relative_path: &str) -> Vec<u8> {
+    let relative = relative_path.trim_start_matches('/');
+    let mut candidates = Vec::new();
+    if let Ok(current_dir) = std::env::current_dir() {
+        candidates.push(current_dir.join("public").join(relative));
+        candidates.push(current_dir.join(relative));
+        if current_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == "src-tauri")
+        {
+            if let Some(project_dir) = current_dir.parent() {
+                candidates.push(project_dir.join("public").join(relative));
+            }
+        }
+    }
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join("public").join(relative));
+        candidates.push(resource_dir.join(relative));
+    }
+    candidates
+        .into_iter()
+        .find_map(|path| fs::read(path).ok())
+        .unwrap_or_default()
+}
+
 fn config_path() -> Result<PathBuf, String> {
-    std::env::current_dir()
-        .map(|dir| dir.join("config.yml"))
-        .map_err(|error| format!("获取当前目录失败: {error}"))
+    let current_dir =
+        std::env::current_dir().map_err(|error| format!("获取当前目录失败: {error}"))?;
+    if current_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name == "src-tauri")
+    {
+        if let Some(project_dir) = current_dir.parent() {
+            return Ok(project_dir.join("config.yml"));
+        }
+    }
+    Ok(current_dir.join("config.yml"))
 }
 
 fn legacy_config_path(app: &AppHandle) -> Option<PathBuf> {
@@ -564,9 +770,126 @@ fn normalize_config_value(value: Value) -> AppConfig {
     }
 }
 
-fn normalize_config(config: AppConfig) -> AppConfig {
-    let value = serde_json::to_value(config).unwrap_or(Value::Null);
-    normalize_config_value(value)
+fn normalize_config(mut config: AppConfig) -> AppConfig {
+    let default = AppConfig::default();
+    config.floating_button.size_percent = clamp_f64(
+        config.floating_button.size_percent,
+        0.0,
+        1000.0,
+        default.floating_button.size_percent,
+    );
+    config.floating_button.transparency_percent = clamp_f64(
+        config.floating_button.transparency_percent,
+        0.0,
+        100.0,
+        default.floating_button.transparency_percent,
+    );
+    config.pick_count_dialog.background_darkness_percent = clamp_f64(
+        config.pick_count_dialog.background_darkness_percent,
+        0.0,
+        100.0,
+        default.pick_count_dialog.background_darkness_percent,
+    );
+    config.pick_count_dialog.default_count = clamp_i32(
+        config.pick_count_dialog.default_count,
+        1,
+        10,
+        default.pick_count_dialog.default_count,
+    );
+    config.pick_result_dialog.gacha_sound_volume = clamp_f64(
+        config.pick_result_dialog.gacha_sound_volume,
+        0.0,
+        1.0,
+        default.pick_result_dialog.gacha_sound_volume,
+    );
+    config.web_config.port = clamp_i32(config.web_config.port, 1, 65535, default.web_config.port);
+    if config
+        .web_config
+        .admin_auto_start_task_name
+        .trim()
+        .is_empty()
+    {
+        config.web_config.admin_auto_start_task_name =
+            default.web_config.admin_auto_start_task_name;
+    }
+    config.student_list.retain(|s| !s.name.trim().is_empty());
+    config
+}
+
+fn parse_student_list_text_impl(
+    raw_text: &str,
+    existing_students: &[Student],
+) -> StudentListParseResult {
+    let mut existing_weights = HashMap::with_capacity(existing_students.len());
+    for student in existing_students {
+        let name = student.name.trim();
+        if !name.is_empty() {
+            let weight = if student.weight.is_finite() {
+                student.weight
+            } else {
+                1.0
+            };
+            existing_weights.insert(name.to_string(), weight);
+        }
+    }
+
+    let mut seen = HashSet::new();
+    let mut student_list = Vec::new();
+
+    for name in raw_text
+        .split(|char| char == '\n' || char == '\r' || char == ',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        if seen.insert(name.to_string()) {
+            student_list.push(Student {
+                name: name.to_string(),
+                weight: existing_weights.get(name).copied().unwrap_or(1.0),
+            });
+        }
+    }
+
+    let normalized_text = student_list
+        .iter()
+        .map(|student| student.name.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    StudentListParseResult {
+        student_list,
+        normalized_text,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_student_list_text_dedupes_and_preserves_weights() {
+        let existing_students = vec![
+            Student {
+                name: "Alice".to_string(),
+                weight: 1.7,
+            },
+            Student {
+                name: "Bob".to_string(),
+                weight: 0.4,
+            },
+        ];
+
+        let result =
+            parse_student_list_text_impl(" Alice\r\nBob, Charlie\nAlice\n\n", &existing_students);
+
+        assert_eq!(result.normalized_text, "Alice\nBob\nCharlie");
+        assert_eq!(result.student_list.len(), 3);
+        assert_eq!(result.student_list[0].name, "Alice");
+        assert_eq!(result.student_list[0].weight, 1.7);
+        assert_eq!(result.student_list[1].name, "Bob");
+        assert_eq!(result.student_list[1].weight, 0.4);
+        assert_eq!(result.student_list[2].name, "Charlie");
+        assert_eq!(result.student_list[2].weight, 1.0);
+    }
 }
 
 fn save_config(config: &AppConfig) -> Result<(), String> {
@@ -619,15 +942,12 @@ fn cached_config(state: &tauri::State<'_, AppState>) -> Result<AppConfig, String
 }
 
 fn push_log(app: &AppHandle, state: &tauri::State<'_, AppState>, level: &str, text: &str) {
+    let now = Utc::now();
     let entry = LogEntry {
-        id: format!(
-            "{}-{}",
-            Utc::now().timestamp_millis(),
-            rand::random::<u64>()
-        ),
+        id: format!("{}-{}", now.timestamp_millis(), rand::random::<u64>()),
         level: level.to_string(),
         text: text.to_string(),
-        time: Utc::now().to_rfc3339(),
+        time: now.to_rfc3339(),
     };
     if let Ok(mut guard) = state.inner.lock() {
         guard.logs.push_back(entry.clone());
@@ -775,21 +1095,69 @@ fn persist_floating_position(app: &AppHandle, state: &tauri::State<'_, AppState>
     let Ok(position) = window.outer_position() else {
         return;
     };
-    let Ok(guard) = state.inner.lock() else {
+    let Ok(mut guard) = state.inner.lock() else {
         return;
     };
-    let mut config = guard.config.clone();
-    drop(guard);
-    config.floating_button.position.x = Some(position.x);
-    config.floating_button.position.y = Some(position.y);
-    if save_config(&config).is_ok() {
-        if let Ok(mut guard) = state.inner.lock() {
-            guard.config = config;
-        }
+    guard.config.floating_button.position.x = Some(position.x);
+    guard.config.floating_button.position.y = Some(position.y);
+    let config_ref = &guard.config;
+    let _ = save_config(config_ref);
+}
+
+fn build_weighted_pool(config: &AppConfig) -> WeightedPool {
+    let entries = config
+        .student_list
+        .iter()
+        .filter_map(|student| {
+            let name = student.name.trim();
+            if name.is_empty() {
+                None
+            } else {
+                Some((
+                    name.to_string(),
+                    student.weight.max(0.0).powf(WEIGHT_BOOST_GAMMA),
+                ))
+            }
+        })
+        .collect::<Vec<_>>();
+    let total_weight = entries.iter().map(|(_, weight)| *weight).sum();
+    WeightedPool {
+        entries,
+        total_weight,
     }
 }
 
-fn pick_students_by_weight(config: &AppConfig, count: i32) -> Vec<PickedStudent> {
+fn pick_students_with_repeat(weighted_pool: &WeightedPool, count: i32) -> Vec<PickedStudent> {
+    if weighted_pool.entries.is_empty() || count <= 0 {
+        return Vec::new();
+    }
+
+    let target_count = count.max(0) as usize;
+    let mut rng = rand::thread_rng();
+    let mut picked = Vec::with_capacity(target_count);
+
+    for _ in 0..target_count {
+        let mut pick_index = None;
+        if weighted_pool.total_weight > 0.0 {
+            let mut roll = rng.gen::<f64>() * weighted_pool.total_weight;
+            for (index, (_, weight)) in weighted_pool.entries.iter().enumerate() {
+                roll -= *weight;
+                if roll <= 0.0 {
+                    pick_index = Some(index);
+                    break;
+                }
+            }
+        }
+        let index = pick_index.unwrap_or_else(|| rng.gen_range(0..weighted_pool.entries.len()));
+        picked.push(PickedStudent {
+            name: weighted_pool.entries[index].0.clone(),
+        });
+    }
+
+    picked
+}
+
+fn pick_students_without_repeat(config: &AppConfig, count: i32) -> Vec<PickedStudent> {
     let pool = config
         .student_list
         .iter()
@@ -809,34 +1177,7 @@ fn pick_students_by_weight(config: &AppConfig, count: i32) -> Vec<PickedStudent>
 
     let target_count = count.max(0) as usize;
     let mut rng = rand::thread_rng();
-    let mut picked = Vec::new();
-
-    if config.allow_repeat_draw {
-        let weighted_pool = pool
-            .iter()
-            .map(|(name, weight)| (name.clone(), weight.powf(WEIGHT_BOOST_GAMMA)))
-            .collect::<Vec<_>>();
-        let total_weight: f64 = weighted_pool.iter().map(|(_, weight)| *weight).sum();
-
-        for _ in 0..target_count {
-            let mut pick_index = None;
-            if total_weight > 0.0 {
-                let mut roll = rng.gen::<f64>() * total_weight;
-                for (index, (_, weight)) in weighted_pool.iter().enumerate() {
-                    roll -= *weight;
-                    if roll <= 0.0 {
-                        pick_index = Some(index);
-                        break;
-                    }
-                }
-            }
-            let index = pick_index.unwrap_or_else(|| rng.gen_range(0..weighted_pool.len()));
-            picked.push(PickedStudent {
-                name: weighted_pool[index].0.clone(),
-            });
-        }
-        return picked;
-    }
+    let mut picked = Vec::with_capacity(target_count.min(pool.len()));
 
     let mut positive_pool = pool
         .iter()
@@ -915,11 +1256,18 @@ fn request_admin_relaunch() -> ApiResult {
         .map(|arg| format!("\"{}\"", arg.replace('"', "\\\"")))
         .collect::<Vec<_>>()
         .join(" ");
-    let command = format!(
-        "Start-Process -FilePath '{}' -ArgumentList '{}' -Verb RunAs",
-        quote_for_powershell(&exe_text),
-        quote_for_powershell(&args)
-    );
+    let command = if args.is_empty() {
+        format!(
+            "Start-Process -FilePath '{}' -Verb RunAs",
+            quote_for_powershell(&exe_text)
+        )
+    } else {
+        format!(
+            "Start-Process -FilePath '{}' -ArgumentList '{}' -Verb RunAs",
+            quote_for_powershell(&exe_text),
+            quote_for_powershell(&args)
+        )
+    };
 
     match Command::new("powershell")
         .args(["-NoProfile", "-Command", &command])
@@ -1305,7 +1653,13 @@ async fn check_update_from_main(local_version: &str) -> UpdateResult {
 fn get_floating_button_config(
     state: tauri::State<'_, AppState>,
 ) -> Result<FloatingButtonConfig, String> {
-    Ok(cached_config(&state)?.floating_button)
+    Ok(state
+        .inner
+        .lock()
+        .map_err(|_| "状态锁定失败".to_string())?
+        .config
+        .floating_button
+        .clone())
 }
 
 #[tauri::command]
@@ -1342,32 +1696,24 @@ fn floating_button_drag_move(
     dx: f64,
     dy: f64,
 ) -> Result<(), String> {
-    let session = state
-        .inner
-        .lock()
-        .map_err(|_| "状态锁定失败".to_string())?
-        .drag_session
-        .clone();
-    if let Some(session) = session {
-        let next_x = session.start_x + dx.round() as i32;
-        let next_y = session.start_y + dy.round() as i32;
-        if (next_x - session.last_x).abs() < 2 && (next_y - session.last_y).abs() < 2 {
-            return Ok(());
-        }
-        window
-            .set_position(Position::Physical(PhysicalPosition {
-                x: next_x,
-                y: next_y,
-            }))
-            .map_err(|error| error.to_string())?;
-        if let Ok(mut guard) = state.inner.lock() {
-            if let Some(active) = &mut guard.drag_session {
-                active.last_x = next_x;
-                active.last_y = next_y;
-            }
-        }
+    let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+    let Some(session) = &mut guard.drag_session else {
+        return Ok(());
+    };
+    let next_x = session.start_x + dx.round() as i32;
+    let next_y = session.start_y + dy.round() as i32;
+    if (next_x - session.last_x).abs() < 2 && (next_y - session.last_y).abs() < 2 {
+        return Ok(());
     }
-    Ok(())
+    session.last_x = next_x;
+    session.last_y = next_y;
+    drop(guard);
+    window
+        .set_position(Position::Physical(PhysicalPosition {
+            x: next_x,
+            y: next_y,
+        }))
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1398,7 +1744,13 @@ fn floating_button_set_ignore_mouse(window: WebviewWindow, _ignore: bool) -> Res
 fn get_pick_count_config(
     state: tauri::State<'_, AppState>,
 ) -> Result<PickCountDialogConfig, String> {
-    Ok(cached_config(&state)?.pick_count_dialog)
+    Ok(state
+        .inner
+        .lock()
+        .map_err(|_| "状态锁定失败".to_string())?
+        .config
+        .pick_count_dialog
+        .clone())
 }
 
 #[tauri::command]
@@ -1447,8 +1799,17 @@ fn confirm_pick_count(
         "info",
         &format!("Pick count confirmed. count={selected_count}, playMusic={play_music}"),
     );
-    let config = cached_config(&state)?;
-    let picked_students = pick_students_by_weight(&config, selected_count);
+    let picked_students = {
+        let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+        if guard.config.allow_repeat_draw {
+            if guard.weighted_pool_cache.is_none() {
+                guard.weighted_pool_cache = Some(build_weighted_pool(&guard.config));
+            }
+            pick_students_with_repeat(guard.weighted_pool_cache.as_ref().unwrap(), selected_count)
+        } else {
+            pick_students_without_repeat(&guard.config, selected_count)
+        }
+    };
     if !picked_students.is_empty() {
         let names = picked_students
             .iter()
@@ -1500,10 +1861,40 @@ fn open_pick_result_window(
 }
 
 #[tauri::command]
+fn play_click_sound(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.audio.send(AudioCommand::PlayClick)
+}
+
+#[tauri::command]
+fn play_bgm(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.audio.send(AudioCommand::PlayBgm)
+}
+
+#[tauri::command]
+fn stop_bgm(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.audio.send(AudioCommand::StopBgm)
+}
+
+#[tauri::command]
+fn play_gacha_sound(state: tauri::State<'_, AppState>, volume: f64) -> Result<(), String> {
+    state.audio.send(AudioCommand::PlayGacha(volume as f32))
+}
+
+#[tauri::command]
+fn stop_gacha_sound(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.audio.send(AudioCommand::StopGacha)
+}
+#[tauri::command]
 fn get_pick_result_config(
     state: tauri::State<'_, AppState>,
 ) -> Result<PickResultDialogConfig, String> {
-    Ok(cached_config(&state)?.pick_result_dialog)
+    Ok(state
+        .inner
+        .lock()
+        .map_err(|_| "状态锁定失败".to_string())?
+        .config
+        .pick_result_dialog
+        .clone())
 }
 
 #[tauri::command]
@@ -1548,6 +1939,32 @@ fn get_config(state: tauri::State<'_, AppState>) -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
+fn parse_student_list_text(
+    raw_text: String,
+    existing_students: Vec<Student>,
+) -> Result<StudentListParseResult, String> {
+    Ok(parse_student_list_text_impl(&raw_text, &existing_students))
+}
+
+#[tauri::command]
+fn import_student_list_from_file(
+    existing_students: Vec<Student>,
+) -> Result<Option<StudentListParseResult>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("名单文件", &["txt", "csv"])
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+    let raw_text =
+        fs::read_to_string(&path).map_err(|error| format!("读取名单文件失败: {error}"))?;
+    Ok(Some(parse_student_list_text_impl(
+        &raw_text,
+        &existing_students,
+    )))
+}
+
+#[tauri::command]
 fn save_app_config(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
@@ -1556,11 +1973,9 @@ fn save_app_config(
     let normalized = normalize_config(config);
     save_config(&normalized)?;
     {
-        state
-            .inner
-            .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
-            .config = normalized.clone();
+        let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+        guard.config = normalized.clone();
+        guard.weighted_pool_cache = None;
     }
     if let Some(window) = app.get_webview_window("floating") {
         apply_floating_window_config(&window, &normalized);
@@ -1640,11 +2055,9 @@ fn create_admin_startup_task(
             task_name.trim().to_string()
         };
         save_config(&config)?;
-        state
-            .inner
-            .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
-            .config = config;
+        let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+        guard.config = config;
+        guard.weighted_pool_cache = None;
     }
     Ok(result)
 }
@@ -1656,6 +2069,23 @@ fn renderer_log(app: AppHandle, state: tauri::State<'_, AppState>, level: String
     } else {
         level.trim()
     };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    level.hash(&mut hasher);
+    text.hash(&mut hasher);
+    let key = hasher.finish();
+    let now = std::time::Instant::now();
+    if let Ok(mut guard) = state.inner.lock() {
+        if let Some(last) = guard.log_dedup.get(&key) {
+            if now.duration_since(*last).as_millis() < 1000 {
+                return;
+            }
+        }
+        guard.log_dedup.insert(key, now);
+        if guard.log_dedup.len() > 100 {
+            let cutoff = now - std::time::Duration::from_secs(10);
+            guard.log_dedup.retain(|_, time| *time > cutoff);
+        }
+    }
     push_log(&app, &state, level, &text);
 }
 
@@ -1705,24 +2135,51 @@ fn setup_tray(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn run() {
+    let single_instance_guard = match acquire_single_instance_guard() {
+        Ok(Some(guard)) => guard,
+        Ok(None) => return,
+        Err(error) => {
+            eprintln!("{error}");
+            return;
+        }
+    };
+
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
             let app_handle = app.handle().clone();
             let initial_config = load_config(&app_handle).unwrap_or_default();
-            app.manage(AppState {
-                inner: Mutex::new(RuntimeState::new(initial_config.clone())),
-            });
+            let mut single_instance_guard = Some(single_instance_guard);
 
             if initial_config.web_config.admin_topmost_enabled
                 && cfg!(target_os = "windows")
+                && !cfg!(debug_assertions)
                 && !is_process_elevated()
             {
+                drop(single_instance_guard.take());
                 let result = request_admin_relaunch();
                 if result.ok {
                     app_handle.exit(0);
                     return Ok(());
                 }
+
+                single_instance_guard = match acquire_single_instance_guard() {
+                    Ok(Some(guard)) => Some(guard),
+                    Ok(None) => {
+                        app_handle.exit(0);
+                        return Ok(());
+                    }
+                    Err(error) => return Err(anyhow::Error::msg(error).into()),
+                };
             }
+
+            let single_instance_guard = single_instance_guard
+                .take()
+                .ok_or_else(|| anyhow::Error::msg("单实例锁未初始化"))?;
+            app.manage(AppState {
+                inner: Mutex::new(RuntimeState::new(initial_config.clone())),
+                audio: AudioController::new(&app_handle),
+                _single_instance_guard: single_instance_guard,
+            });
 
             setup_tray(&app_handle).map_err(anyhow::Error::msg)?;
             create_floating_window(&app_handle, &initial_config).map_err(anyhow::Error::msg)?;
@@ -1751,10 +2208,17 @@ pub fn run() {
             open_pick_count,
             cancel_pick_count,
             confirm_pick_count,
+            play_click_sound,
+            play_bgm,
+            stop_bgm,
+            play_gacha_sound,
+            stop_gacha_sound,
             get_pick_result_config,
             get_pick_results,
             close_pick_result,
             get_config,
+            parse_student_list_text,
+            import_student_list_from_file,
             save_app_config,
             get_app_info,
             check_update,

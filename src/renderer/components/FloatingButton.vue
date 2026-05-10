@@ -33,30 +33,8 @@ const props = defineProps({
 
 const emit = defineEmits(['click'])
 
-const CLICK_SOUND_GAIN = 1
-const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-const clickBufferPromise = fetch('/sound/button_click.wav')
-  .then((response) => response.arrayBuffer())
-  .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer.slice(0)))
-
 function playClickSound() {
-  clickBufferPromise
-    .then(async (buffer) => {
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-      }
-
-      const source = audioContext.createBufferSource()
-      source.buffer = buffer
-
-      const gainNode = audioContext.createGain()
-      gainNode.gain.value = CLICK_SOUND_GAIN
-
-      source.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      source.start(0)
-    })
-    .catch(() => {})
+  window.audioApi?.playClickSound?.().catch(() => {})
 }
 
 const styleOpacity = computed(() => {

@@ -22,10 +22,9 @@
                 <div class="list-manager">
                   <p class="desc">老师可以手动输入名单（每行一个），或者点击下方按钮导入CSV/TXT文件自动解析！</p>
                   <div class="list-actions">
-                    <label class="upload-btn">
+                    <button type="button" class="upload-btn" @click="handleFileImport">
                       <span>📂 导入文件</span>
-                      <input type="file" accept=".txt,.csv" @change="handleFileUpload" style="display: none;" />
-                    </label>
+                    </button>
                     <span class="count-badge">当前导入人数：{{ config.studentList.length }}</span>
                   </div>
                   <textarea 
@@ -50,7 +49,7 @@
                 <div class="student-list table-wrapper">
                   <div v-if="config.studentList.length === 0" class="empty-tips-text">暂时没有名单哦~请先在“名单导入”中输入。</div>
                   <div v-if="config.studentList.length === 0" class="empty-tips-arona">
-                  <img v-if="config.studentList.length === 0" src="/image/Arona_Empty.png" alt="Arona Empty" class="empty-tips-arona-img" />
+                  <img v-if="config.studentList.length === 0" src="/image/Arona_Empty.webp" alt="Arona Empty" class="empty-tips-arona-img" />
                   </div>
                   <table class="student-table" v-else>
                     <thead>
@@ -61,7 +60,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(student, index) in config.studentList" :key="index">
+                      <tr v-for="(student, index) in config.studentList" :key="`${student.name}-${index}`">
                         <td class="col-name">{{ student.name }}</td>
                         <td class="col-weight">
                           <input 
@@ -293,9 +292,9 @@ let removeLogListener = null
 
 const addLog = (level, text, timeOverride) => {
   const time = timeOverride || new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  logs.value.unshift({ id: `${Date.now()}-${logSeed++}`, level, text, time })
+  logs.value.push({ id: `${Date.now()}-${logSeed++}`, level, text, time })
   if (logs.value.length > 200) {
-    logs.value.length = 200
+    logs.value.splice(0, logs.value.length - 200)
   }
 }
 
@@ -356,25 +355,23 @@ const config = ref({
 
 const rawListText = ref('')
 let textSyncTimer = null
+let textSyncRunId = 0
 
-const syncTextToList = () => {
+const syncTextToList = async ({ updateText = false } = {}) => {
   if (textSyncTimer) {
     window.clearTimeout(textSyncTimer)
     textSyncTimer = null
   }
-  const names = rawListText.value
-    .split(/[\r\n]+/)
-    .flatMap(line => line.split(','))
-    .map(name => name.trim())
-    .filter(name => name)
+  const runId = ++textSyncRunId
+  const result = await appApi.parseStudentListText(rawListText.value, config.value.studentList || [])
+  if (runId !== textSyncRunId) {
+    return
+  }
 
-  const uniqueNames = Array.from(new Set(names))
-  const existingMap = new Map(config.value.studentList.map(s => [s.name, s.weight]))
-  
-  config.value.studentList = uniqueNames.map(name => ({
-    name,
-    weight: existingMap.has(name) ? existingMap.get(name) : 1.0
-  }))
+  config.value.studentList = result.studentList || []
+  if (updateText) {
+    rawListText.value = result.normalizedText || ''
+  }
 }
 
 const scheduleTextSync = () => {
@@ -382,7 +379,10 @@ const scheduleTextSync = () => {
     window.clearTimeout(textSyncTimer)
   }
   textSyncTimer = window.setTimeout(() => {
-    syncTextToList()
+    syncTextToList().catch((error) => {
+      console.error('同步名单失败:', error)
+      addLog('error', '同步名单失败，请检查输入内容')
+    })
   }, 120)
 }
 
@@ -391,6 +391,7 @@ const syncListToText = () => {
     window.clearTimeout(textSyncTimer)
     textSyncTimer = null
   }
+  textSyncRunId += 1
   rawListText.value = config.value.studentList.map(s => s.name).join('\n')
 }
 
@@ -403,22 +404,16 @@ const resetWeights = () => {
   config.value.studentList.forEach(s => { s.weight = 1.0 })
 }
 
-const handleFileUpload = (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  const reader = new FileReader()
-  reader.readAsText(file, 'utf-8')
-  reader.onload = (e) => {
-    const text = e.target.result
-    const lines = text
-      .split(/[\r\n]+/)
-      .map(line => line.trim())
-      .filter(line => line)
-    
-    rawListText.value = lines.join('\n')
-    syncTextToList()
-    event.target.value = ''
+const handleFileImport = async () => {
+  try {
+    const result = await appApi.importStudentListFromFile(config.value.studentList || [])
+    if (!result) return
+    config.value.studentList = result.studentList
+    rawListText.value = result.normalizedText
+    addLog('info', `已导入 ${result.studentList.length} 名学生`)
+  } catch (error) {
+    console.error('导入名单失败:', error)
+    addLog('error', '导入名单失败，请检查文件内容')
   }
 }
 
@@ -466,7 +461,7 @@ const applyDefaultAutoStartPath = () => {
 
 const saveConfig = async () => {
   try {
-    syncTextToList()
+    await syncTextToList({ updateText: true })
     const payload = {
       studentList: config.value.studentList,
       allowRepeatDraw: Boolean(config.value.allowRepeatDraw),
@@ -1135,7 +1130,7 @@ input[type="checkbox"] {
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 10px;
   padding-right: 6px;
   overflow: auto;

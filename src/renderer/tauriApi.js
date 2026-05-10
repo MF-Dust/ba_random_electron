@@ -27,6 +27,8 @@ const listenCompat = (eventName, callback) => {
 
 export const appApi = {
   getConfig: () => invoke('get_config'),
+  parseStudentListText: (rawText, existingStudents) => invoke('parse_student_list_text', { rawText, existingStudents }),
+  importStudentListFromFile: (existingStudents) => invoke('import_student_list_from_file', { existingStudents }),
   saveConfig: (config) => invoke('save_app_config', { config }),
   getAppInfo: () => invoke('get_app_info'),
   checkUpdate: () => invoke('check_update'),
@@ -61,6 +63,14 @@ export function installTauriCompatApis() {
     close: () => invoke('close_pick_result'),
     onOpen: (callback) => listenCompat('pick-result-open', callback),
     onReset: (callback) => listenCompat('pick-result-reset', callback)
+  }
+
+  window.audioApi = {
+    playClickSound: () => invoke('play_click_sound'),
+    playBgm: () => invoke('play_bgm'),
+    stopBgm: () => invoke('stop_bgm'),
+    playGachaSound: (volume) => invoke('play_gacha_sound', { volume }),
+    stopGachaSound: () => invoke('stop_gacha_sound')
   }
 
   window.logApi = {

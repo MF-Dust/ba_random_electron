@@ -1,15 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
-const resolveAssetUrl = (relativePath) => {
-  const base = window.location.protocol === 'file:'
-    ? new URL('.', window.location.href).toString()
-    : `${window.location.origin}/`
-  return new URL(relativePath.replace(/^\/+/, ''), base).toString()
-}
-const bgmUrl = resolveAssetUrl('sound/bgm.mp3')
-const clickSoundUrl = resolveAssetUrl('sound/button_click.wav')
-
 function clampInt(value, min, max, fallback) {
   const n = Number(value)
   if (!Number.isFinite(n)) return fallback
@@ -26,20 +17,10 @@ const isInitializing = ref(false)
 
 const MIN_COUNT = 1
 const MAX_COUNT = 10
-const BGM_GAIN = 0.3
-const CLICK_SOUND_GAIN = 1
 const EXIT_ANIMATION_MS = 400
 
 let removeOnOpenListener = null
 let removeStopListener = null
-let bgmAudio = null
-let clickAudio = null
-
-const attachAudioDebug = (audio, label) => {
-  audio.addEventListener('error', () => {
-    console.error(`${label} load failed`, { src: audio.src, error: audio.error })
-  })
-}
 const canDecrease = computed(() => count.value > MIN_COUNT)
 const canIncrease = computed(() => count.value < MAX_COUNT)
 
@@ -60,10 +41,6 @@ async function initConfig() {
   count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, MIN_COUNT)
   playMusic.value = Boolean(cfg.defaultPlayMusic)
   backgroundDarknessPercent.value = clampInt(cfg.backgroundDarknessPercent, 0, 100, 50)
-
-  if (bgmAudio) {
-    bgmAudio.volume = BGM_GAIN
-  }
   isInitializing.value = false
 }
 
@@ -96,23 +73,11 @@ function setMaxCount() {
 }
 
 function stopAudio() {
-  if (bgmAudio) {
-    bgmAudio.pause()
-    bgmAudio.currentTime = 0
-  }
+  window.audioApi?.stopBgm?.().catch(() => {})
 }
 
 async function playBgm() {
-  if (!bgmAudio) {
-    bgmAudio = new Audio(bgmUrl)
-    bgmAudio.loop = true
-    attachAudioDebug(bgmAudio, 'BGM')
-  }
-  bgmAudio.volume = BGM_GAIN
-  bgmAudio.currentTime = 0
-  await bgmAudio.play().catch((error) => {
-    console.warn('BGM play blocked', error)
-  })
+  await window.audioApi?.playBgm?.()
 }
 
 async function resetDialogStateFromConfig(shouldPlayBgm) {
@@ -130,15 +95,7 @@ async function resetDialogStateFromConfig(shouldPlayBgm) {
 }
 
 function playClickSound() {
-  if (!clickAudio) {
-    clickAudio = new Audio(clickSoundUrl)
-    attachAudioDebug(clickAudio, 'Click sound')
-  }
-  clickAudio.volume = CLICK_SOUND_GAIN
-  clickAudio.currentTime = 0
-  clickAudio.play().catch((error) => {
-    console.warn('Click sound play blocked', error)
-  })
+  window.audioApi?.playClickSound?.().catch(() => {})
 }
 
 function beginExit(action) {

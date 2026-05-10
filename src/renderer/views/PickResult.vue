@@ -9,14 +9,6 @@ const canClose = ref(false)
 const isClosing = ref(false)
 const lastToken = ref(0)
 
-const resolveAssetUrl = (relativePath) => {
-  const base = window.location.protocol === 'file:'
-    ? new URL('.', window.location.href).toString()
-    : `${window.location.origin}/`
-  return new URL(relativePath.replace(/^\/+/, ''), base).toString()
-}
-const gachaSoundUrl = resolveAssetUrl('sound/gacha_loading.wav')
-let gachaAudio = null
 let revealTimer = null
 let closeTimer = null
 let closeFadeTimer = null
@@ -134,29 +126,11 @@ async function closeResult() {
 }
 
 function stopGachaLoadingSound() {
-  if (gachaAudio) {
-    gachaAudio.pause()
-    gachaAudio.currentTime = 0
-  }
+  window.audioApi?.stopGachaSound?.().catch(() => {})
 }
 
 async function playGachaLoadingSound() {
-  try {
-    stopGachaLoadingSound()
-    if (!gachaAudio) {
-      gachaAudio = new Audio(gachaSoundUrl)
-      gachaAudio.addEventListener('error', () => {
-        console.error('Gacha sound load failed', { src: gachaAudio.src, error: gachaAudio.error })
-      })
-    }
-    gachaAudio.volume = Math.max(0, Math.min(1, Number(gachaSoundVolume.value) || 0))
-    gachaAudio.currentTime = 0
-    await gachaAudio.play().catch((error) => {
-      console.warn('Gacha sound play blocked', error)
-    })
-  } catch (error) {
-    console.warn('Failed to play gacha loading sound:', error)
-  }
+  await window.audioApi?.playGachaSound?.(Math.max(0, Math.min(1, Number(gachaSoundVolume.value) || 0)))
 }
 
 async function loadSoundConfig() {
@@ -232,7 +206,7 @@ onBeforeUnmount(() => {
           class="letter-card"
           :style="{ '--index': index }"
         >
-          <img class="letter-img" src="/image/letter.png" alt="letter" />
+          <img class="letter-img" src="/image/letter.webp" alt="letter" />
           <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index }">
             <span>{{ item.name }}</span>
           </div>
@@ -245,7 +219,7 @@ onBeforeUnmount(() => {
           class="letter-card"
           :style="{ '--index': index + 5 }"
         >
-          <img class="letter-img" src="/image/letter.png" alt="letter" />
+          <img class="letter-img" src="/image/letter.webp" alt="letter" />
           <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index + 5 }">
             <span>{{ item.name }}</span>
           </div>
