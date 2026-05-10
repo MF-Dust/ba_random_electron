@@ -32,12 +32,6 @@ const createDefaultConfig = () => ({
   }
 })
 
-const maybeNumber = (value) => {
-  if (value === '' || value === null || value === undefined) return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
 export function useAppConfig(appApi, addLog) {
   const config = ref(createDefaultConfig())
   const isDebugMode = ref(false)
@@ -86,37 +80,7 @@ export function useAppConfig(appApi, addLog) {
   const saveConfig = async (syncTextToList) => {
     try {
       await syncTextToList({ updateText: true })
-      const payload = {
-        studentList: config.value.studentList,
-        allowRepeatDraw: Boolean(config.value.allowRepeatDraw),
-        floatingButton: {
-          sizePercent: Number(config.value.floatingButton.sizePercent),
-          transparencyPercent: Number(config.value.floatingButton.transparencyPercent),
-          alwaysOnTop: Boolean(config.value.floatingButton.alwaysOnTop),
-          position: {
-            x: maybeNumber(config.value.floatingButton.position.x),
-            y: maybeNumber(config.value.floatingButton.position.y)
-          }
-        },
-        pickCountDialog: {
-          defaultPlayMusic: Boolean(config.value.pickCountDialog.defaultPlayMusic),
-          backgroundDarknessPercent: Number(config.value.pickCountDialog.backgroundDarknessPercent),
-          defaultCount: Number(config.value.pickCountDialog.defaultCount)
-        },
-        pickResultDialog: {
-          defaultPlayGachaSound: Boolean(config.value.pickResultDialog.defaultPlayGachaSound),
-          gachaSoundVolume: Number(config.value.pickResultDialog.gachaSoundVolume)
-        },
-        webConfig: {
-          port: Number(config.value.webConfig.port || 21219),
-          adminTopmostEnabled: Boolean(config.value.webConfig.adminTopmostEnabled),
-          adminAutoStartEnabled: Boolean(config.value.webConfig.adminAutoStartEnabled),
-          adminAutoStartPath: String(config.value.webConfig.adminAutoStartPath || ''),
-          adminAutoStartTaskName: String(config.value.webConfig.adminAutoStartTaskName || defaultTaskName)
-        }
-      }
-
-      await appApi.saveConfig(payload)
+      await appApi.saveConfig(config.value)
       addLog('success', '配置已保存并生效')
       window.alert('配置已保存并生效。')
     } catch (error) {

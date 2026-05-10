@@ -5,9 +5,9 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position, WebviewWind
 use crate::admin::{create_admin_startup_task_impl, is_process_elevated, request_admin_relaunch};
 use crate::audio::AudioCommand;
 use crate::config::{
-    normalize_config, parse_student_list_text_impl, save_config, AppConfig, FloatingButtonConfig,
-    PickCountDialogConfig, PickResultDialogConfig, Student, StudentListParseResult,
-    ADMIN_TASK_DEFAULT_NAME,
+    normalize_config_value, parse_student_list_text_impl, save_config, AppConfig,
+    FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
+    StudentListParseResult, ADMIN_TASK_DEFAULT_NAME,
 };
 use crate::models::{ApiResult, AppInfo, PickResultResetPayload, PickedStudent, UpdateResult};
 use crate::picker::{build_weighted_pool, pick_students_with_repeat, pick_students_without_repeat};
@@ -327,9 +327,9 @@ pub(crate) fn import_student_list_from_file(
 pub(crate) fn save_app_config(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
-    config: AppConfig,
+    config: serde_json::Value,
 ) -> Result<ApiResult, String> {
-    let normalized = normalize_config(config);
+    let normalized = normalize_config_value(config);
     save_config(&normalized)?;
     {
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;

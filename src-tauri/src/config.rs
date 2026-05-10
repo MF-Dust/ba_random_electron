@@ -270,6 +270,24 @@ fn value_as_i32(value: Option<&Value>, fallback: i32) -> i32 {
     value_as_f64(value, fallback as f64).round() as i32
 }
 
+fn value_as_optional_i32(value: Option<&Value>) -> Option<i32> {
+    match value {
+        Some(Value::Number(number)) => number.as_f64().map(|value| value.round() as i32),
+        Some(Value::String(text)) => {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                trimmed
+                    .parse::<f64>()
+                    .ok()
+                    .map(|value| value.round() as i32)
+            }
+        }
+        _ => None,
+    }
+}
+
 fn value_as_bool(value: Option<&Value>, fallback: bool) -> bool {
     match value {
         Some(Value::Bool(value)) => *value,
@@ -295,7 +313,7 @@ fn get_field<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
     value.as_object().and_then(|object| object.get(key))
 }
 
-fn normalize_config_value(value: Value) -> AppConfig {
+pub(crate) fn normalize_config_value(value: Value) -> AppConfig {
     let default = AppConfig::default();
     let mut student_list = Vec::new();
     if let Some(Value::Array(students)) = get_field(&value, "studentList") {
@@ -362,18 +380,8 @@ fn normalize_config_value(value: Value) -> AppConfig {
                 default.floating_button.always_on_top,
             ),
             position: FloatingPosition {
-                x: match get_field(position, "x") {
-                    Some(Value::Number(_)) | Some(Value::String(_)) => {
-                        Some(value_as_i32(get_field(position, "x"), 0))
-                    }
-                    _ => None,
-                },
-                y: match get_field(position, "y") {
-                    Some(Value::Number(_)) | Some(Value::String(_)) => {
-                        Some(value_as_i32(get_field(position, "y"), 0))
-                    }
-                    _ => None,
-                },
+                x: value_as_optional_i32(get_field(position, "x")),
+                y: value_as_optional_i32(get_field(position, "y")),
             },
         },
         pick_count_dialog: PickCountDialogConfig {
@@ -447,52 +455,6 @@ fn normalize_config_value(value: Value) -> AppConfig {
             },
         },
     }
-}
-
-pub(crate) fn normalize_config(mut config: AppConfig) -> AppConfig {
-    let default = AppConfig::default();
-    config.floating_button.size_percent = clamp_f64(
-        config.floating_button.size_percent,
-        0.0,
-        1000.0,
-        default.floating_button.size_percent,
-    );
-    config.floating_button.transparency_percent = clamp_f64(
-        config.floating_button.transparency_percent,
-        0.0,
-        100.0,
-        default.floating_button.transparency_percent,
-    );
-    config.pick_count_dialog.background_darkness_percent = clamp_f64(
-        config.pick_count_dialog.background_darkness_percent,
-        0.0,
-        100.0,
-        default.pick_count_dialog.background_darkness_percent,
-    );
-    config.pick_count_dialog.default_count = clamp_i32(
-        config.pick_count_dialog.default_count,
-        1,
-        10,
-        default.pick_count_dialog.default_count,
-    );
-    config.pick_result_dialog.gacha_sound_volume = clamp_f64(
-        config.pick_result_dialog.gacha_sound_volume,
-        0.0,
-        1.0,
-        default.pick_result_dialog.gacha_sound_volume,
-    );
-    config.web_config.port = clamp_i32(config.web_config.port, 1, 65535, default.web_config.port);
-    if config
-        .web_config
-        .admin_auto_start_task_name
-        .trim()
-        .is_empty()
-    {
-        config.web_config.admin_auto_start_task_name =
-            default.web_config.admin_auto_start_task_name;
-    }
-    config.student_list.retain(|s| !s.name.trim().is_empty());
-    config
 }
 
 pub(crate) fn parse_student_list_text_impl(

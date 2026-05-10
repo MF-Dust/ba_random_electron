@@ -29,9 +29,10 @@ const {
           v-for="(item, index) in topRow"
           :key="`top-${index}-${item.name}`"
           class="letter-card"
+          :class="`is-${item.rarity}`"
           :style="{ '--index': index }"
         >
-          <img class="letter-img" src="/image/letter.webp" alt="letter" />
+          <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
           <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index }">
             <span>{{ item.name }}</span>
           </div>
@@ -42,9 +43,10 @@ const {
           v-for="(item, index) in bottomRow"
           :key="`bottom-${index}-${item.name}`"
           class="letter-card"
+          :class="`is-${item.rarity}`"
           :style="{ '--index': index + 5 }"
         >
-          <img class="letter-img" src="/image/letter.webp" alt="letter" />
+          <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
           <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index + 5 }">
             <span>{{ item.name }}</span>
           </div>

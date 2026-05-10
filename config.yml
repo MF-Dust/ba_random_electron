@@ -30,8 +30,8 @@ floatingButton:
   alwaysOnTop: true
   # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
   position:
-    x: 1120
-    y: 674
+    x: 1181
+    y: 761
 
 # 人数选择窗口配置
 pickCountDialog:
@@ -49,15 +49,15 @@ pickResultDialog:
   # 抽奖音效音量（0.0-1.0），默认 0.6
   gachaSoundVolume: 1
 
-# 网页配置服务
+# 应用配置
 webConfig:
-  # 配置网页端口（默认 21219）
+  # 兼容旧版本字段；Tauri 版不再启动本地 Web 配置服务
   port: 21219
   # 启用管理员置顶增强（Windows 下会尝试管理员权限）
   adminTopmostEnabled: true
   # 是否创建开机计划任务（管理员权限运行）
   adminAutoStartEnabled: false
   # 计划任务运行的可执行文件路径
-  adminAutoStartPath: ""
+  adminAutoStartPath: "C:\\Users\\SakuraStar\\.cargo-target\\ba_random_electron\\release\\blue-random.exe"
   # 计划任务名称
   adminAutoStartTaskName: "Blue Random (Admin)"

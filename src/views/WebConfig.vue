@@ -107,7 +107,7 @@ const {
 
 const { updateState, checkUpdate } = useUpdateCheck(appApi, addLog)
 
-const saveConfig = () => saveCurrentConfig(syncTextToList, rawListText)
+const saveConfig = () => saveCurrentConfig(syncTextToList)
 
 onMounted(() => {
   fetchConfig(rawListText)

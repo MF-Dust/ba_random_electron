@@ -2,6 +2,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { audioApi } from '../api/audioApi'
 import { pickResultApi } from '../api/pickResultApi'
 
+const pityCounter = ref(0)
+
 export function usePickResultDialog() {
   const results = ref([])
   const animationKey = ref(0)
@@ -29,11 +31,29 @@ export function usePickResultDialog() {
     return list
       .map((item) => {
         if (!item) return null
-        if (typeof item === 'string') return { name: item.trim() }
-        if (typeof item === 'object') return { name: String(item.name || '').trim() }
-        return null
+        const name = typeof item === 'string' ? item.trim() : String(item.name || '').trim()
+        if (!name) return null
+
+        pityCounter.value++
+        const isPityDraw = pityCounter.value % 10 === 0
+
+        const rand = Math.random()
+        let rarity = 'blue'
+        if (rand > 0.97) {
+          rarity = 'pink'
+        } else if (rand > 0.785) {
+          rarity = 'gold'
+        }
+
+        // 10th draw guarantee (pity): must be gold or pink
+        if (isPityDraw && rarity === 'blue') {
+          // 5% chance to "upgrade" pity to pink, otherwise gold
+          rarity = Math.random() > 0.95 ? 'pink' : 'gold'
+        }
+
+        return { name, rarity }
       })
-      .filter((item) => item && item.name)
+      .filter((item) => item)
   }
 
   const stopGachaLoadingSound = () => {
