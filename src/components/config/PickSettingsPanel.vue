@@ -17,13 +17,21 @@
       <input type="number" v-model.number="config.pickCountDialog.backgroundDarknessPercent" min="0" max="100" required />
     </label>
     <label>
-      默认人数（1-10）
-      <input type="number" v-model.number="config.pickCountDialog.defaultCount" min="1" max="10" required />
+      默认人数（{{ MIN_PICK_COUNT }}-{{ MAX_PICK_COUNT }}）
+      <input
+        type="number"
+        v-model.number="config.pickCountDialog.defaultCount"
+        :min="MIN_PICK_COUNT"
+        :max="MAX_PICK_COUNT"
+        required
+      />
     </label>
   </div>
 </template>
 
 <script setup>
+import { MAX_PICK_COUNT, MIN_PICK_COUNT } from '../../configDefaults'
+
 defineProps({
   config: {
     type: Object,

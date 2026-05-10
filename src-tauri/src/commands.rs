@@ -7,7 +7,7 @@ use crate::audio::AudioCommand;
 use crate::config::{
     normalize_config_value, parse_student_list_text_impl, save_config, AppConfig,
     FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
-    StudentListParseResult, ADMIN_TASK_DEFAULT_NAME,
+    StudentListParseResult, ADMIN_TASK_DEFAULT_NAME, MAX_PICK_COUNT, MIN_PICK_COUNT,
 };
 use crate::models::{ApiResult, AppInfo, PickResultResetPayload, PickedStudent, UpdateResult};
 use crate::picker::{build_weighted_pool, pick_students_with_repeat, pick_students_without_repeat};
@@ -170,7 +170,7 @@ pub(crate) fn confirm_pick_count(
     count: i32,
     play_music: bool,
 ) -> Result<(), String> {
-    let selected_count = clamp_i32(count, 1, 10, 1);
+    let selected_count = clamp_i32(count, MIN_PICK_COUNT, MAX_PICK_COUNT, MIN_PICK_COUNT);
     push_log(
         &app,
         &state,

@@ -95,7 +95,16 @@ jobs:
           # Create Portable ZIP
           $exePath = Get-ChildItem -Path "src-tauri/target/release/blue-random.exe" | Select-Object -First 1
           if ($exePath) {
-            Compress-Archive -Path $exePath.FullName -DestinationPath "artifacts/blue-random-windows-portable.zip"
+            $portableItems = @($exePath.FullName)
+            $dllPath = "src-tauri/target/release/blue_random_lib.dll"
+            if (Test-Path $dllPath) {
+              $portableItems += $dllPath
+            }
+            $resourcePath = "src-tauri/target/release/_up_"
+            if (Test-Path $resourcePath) {
+              $portableItems += $resourcePath
+            }
+            Compress-Archive -Path $portableItems -DestinationPath "artifacts/blue-random-windows-portable.zip"
           }
 
       - name: Upload package

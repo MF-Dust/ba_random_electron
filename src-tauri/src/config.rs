@@ -7,6 +7,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::utils::{clamp_f64, clamp_i32};
 pub(crate) const ADMIN_TASK_DEFAULT_NAME: &str = "Blue Random (Admin)";
+pub(crate) const MIN_PICK_COUNT: i32 = 1;
+pub(crate) const MAX_PICK_COUNT: i32 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -403,8 +405,8 @@ pub(crate) fn normalize_config_value(value: Value) -> AppConfig {
                     get_field(pick, "defaultCount"),
                     default.pick_count_dialog.default_count,
                 ),
-                1,
-                10,
+                MIN_PICK_COUNT,
+                MAX_PICK_COUNT,
                 default.pick_count_dialog.default_count,
             ),
         },
@@ -505,6 +507,67 @@ pub(crate) fn parse_student_list_text_impl(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_config_value_uses_backend_defaults_for_missing_fields() {
+        let result = normalize_config_value(Value::Null);
+
+        assert!(result.student_list.is_empty());
+        assert!(result.allow_repeat_draw);
+        assert_eq!(result.floating_button.size_percent, 100.0);
+        assert_eq!(result.floating_button.transparency_percent, 20.0);
+        assert!(result.floating_button.always_on_top);
+        assert_eq!(result.floating_button.position.x, None);
+        assert_eq!(result.floating_button.position.y, None);
+        assert!(!result.pick_count_dialog.default_play_music);
+        assert_eq!(result.pick_count_dialog.background_darkness_percent, 50.0);
+        assert_eq!(result.pick_count_dialog.default_count, MIN_PICK_COUNT);
+        assert!(result.pick_result_dialog.default_play_gacha_sound);
+        assert_eq!(result.pick_result_dialog.gacha_sound_volume, 0.6);
+        assert_eq!(result.web_config.port, 21219);
+        assert_eq!(
+            result.web_config.admin_auto_start_task_name,
+            ADMIN_TASK_DEFAULT_NAME
+        );
+    }
+
+    #[test]
+    fn normalize_config_value_clamps_numeric_ranges() {
+        let result = normalize_config_value(serde_json::json!({
+            "floatingButton": {
+                "sizePercent": -1,
+                "transparencyPercent": 150
+            },
+            "pickCountDialog": {
+                "backgroundDarknessPercent": -20,
+                "defaultCount": 99
+            },
+            "pickResultDialog": {
+                "gachaSoundVolume": 2
+            },
+            "webConfig": {
+                "port": 70000
+            }
+        }));
+
+        assert_eq!(result.floating_button.size_percent, 0.0);
+        assert_eq!(result.floating_button.transparency_percent, 100.0);
+        assert_eq!(result.pick_count_dialog.background_darkness_percent, 0.0);
+        assert_eq!(result.pick_count_dialog.default_count, MAX_PICK_COUNT);
+        assert_eq!(result.pick_result_dialog.gacha_sound_volume, 1.0);
+        assert_eq!(result.web_config.port, 65535);
+    }
+
+    #[test]
+    fn normalize_config_value_clamps_pick_count_to_minimum() {
+        let result = normalize_config_value(serde_json::json!({
+            "pickCountDialog": {
+                "defaultCount": -5
+            }
+        }));
+
+        assert_eq!(result.pick_count_dialog.default_count, MIN_PICK_COUNT);
+    }
 
     #[test]
     fn parse_student_list_text_dedupes_and_preserves_weights() {

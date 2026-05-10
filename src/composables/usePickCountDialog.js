@@ -1,9 +1,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { audioApi } from '../api/audioApi'
 import { pickCountApi } from '../api/pickCountApi'
+import {
+  DEFAULT_BACKGROUND_DARKNESS_PERCENT,
+  DEFAULT_PICK_COUNT,
+  MAX_PICK_COUNT,
+  MIN_PICK_COUNT
+} from '../configDefaults'
 
-const MIN_COUNT = 1
-const MAX_COUNT = 10
+const MIN_COUNT = MIN_PICK_COUNT
+const MAX_COUNT = MAX_PICK_COUNT
 const EXIT_ANIMATION_MS = 400
 
 function clampInt(value, min, max, fallback) {
@@ -14,10 +20,10 @@ function clampInt(value, min, max, fallback) {
 }
 
 export function usePickCountDialog() {
-  const count = ref(1)
+  const count = ref(DEFAULT_PICK_COUNT)
   const playMusic = ref(false)
   const isLeaving = ref(false)
-  const backgroundDarknessPercent = ref(50)
+  const backgroundDarknessPercent = ref(DEFAULT_BACKGROUND_DARKNESS_PERCENT)
   const isDialogOpen = ref(false)
   const isInitializing = ref(false)
 
@@ -40,9 +46,14 @@ export function usePickCountDialog() {
     isInitializing.value = true
     const cfg = await pickCountApi.getConfig()
 
-    count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, MIN_COUNT)
+    count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, DEFAULT_PICK_COUNT)
     playMusic.value = Boolean(cfg.defaultPlayMusic)
-    backgroundDarknessPercent.value = clampInt(cfg.backgroundDarknessPercent, 0, 100, 50)
+    backgroundDarknessPercent.value = clampInt(
+      cfg.backgroundDarknessPercent,
+      0,
+      100,
+      DEFAULT_BACKGROUND_DARKNESS_PERCENT
+    )
     isInitializing.value = false
   }
 

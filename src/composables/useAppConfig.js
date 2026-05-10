@@ -1,36 +1,5 @@
 import { ref } from 'vue'
-
-const defaultTaskName = 'Blue Random (Admin)'
-
-const createDefaultConfig = () => ({
-  studentList: [],
-  allowRepeatDraw: true,
-  floatingButton: {
-    sizePercent: 100,
-    transparencyPercent: 100,
-    alwaysOnTop: true,
-    position: {
-      x: null,
-      y: null
-    }
-  },
-  pickCountDialog: {
-    defaultPlayMusic: true,
-    backgroundDarknessPercent: 50,
-    defaultCount: 1
-  },
-  pickResultDialog: {
-    defaultPlayGachaSound: true,
-    gachaSoundVolume: 0.6
-  },
-  webConfig: {
-    port: 21219,
-    adminTopmostEnabled: false,
-    adminAutoStartEnabled: false,
-    adminAutoStartPath: '',
-    adminAutoStartTaskName: defaultTaskName
-  }
-})
+import { DEFAULT_ADMIN_TASK_NAME, createDefaultConfig } from '../configDefaults'
 
 export function useAppConfig(appApi, addLog) {
   const config = ref(createDefaultConfig())
@@ -108,7 +77,7 @@ export function useAppConfig(appApi, addLog) {
       const fallbackPath = defaultExePath.value || ''
       const payload = {
         exePath: String(config.value.webConfig.adminAutoStartPath || fallbackPath).trim(),
-        taskName: String(config.value.webConfig.adminAutoStartTaskName || defaultTaskName).trim()
+        taskName: String(config.value.webConfig.adminAutoStartTaskName || DEFAULT_ADMIN_TASK_NAME).trim()
       }
       if (!payload.exePath) {
         window.alert('请先填写可执行文件路径。')

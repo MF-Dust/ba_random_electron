@@ -56,6 +56,13 @@
 - 除项目 **/public/** 下的图片和音乐资源，项目使用 **AGPLv3** 许可证。
 - 项目 **/public/** 下的图片和音乐资源由各自版权方所有，使用时请注意授权和范围。
 
+## 商标与版权声明
+“蔚蓝档案”是上海星啸网络科技有限公司的注册商标，版权所有。
+
+「ブルーアーカイブ」は株式会社Yostarの登録商標です。著作権はすべて保有されています。
+
+"Blue Archive" is a registered trademark of NEXON Korea Corp. & NEXON GAMES Co., Ltd. All rights reserved.
+
 ## 感谢 💕
 - 《蔚蓝档案(Blue Archive)》游戏提供的灵感：
 [国服](https://bluearchive-cn.com/)  [国际服](https://bluearchive.nexon.com/home) [日服](https://bluearchive.jp/)

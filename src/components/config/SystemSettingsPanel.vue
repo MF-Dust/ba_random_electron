@@ -39,6 +39,13 @@
         <a v-if="updateState.releaseUrl" :href="updateState.releaseUrl" target="_blank" rel="noopener">查看发布页</a>
       </div>
     </div>
+
+    <div class="admin-block trademark-block">
+      <p class="admin-title">商标与版权声明</p>
+      <p class="admin-hint">“蔚蓝档案”是上海星啸网络科技有限公司的注册商标，版权所有。</p>
+      <p class="admin-hint">「ブルーアーカイブ」は株式会社Yostarの登録商標です。著作権はすべて保有されています。</p>
+      <p class="admin-hint">"Blue Archive" is a registered trademark of NEXON Korea Corp. & NEXON GAMES Co., Ltd. All rights reserved.</p>
+    </div>
   </div>
 </template>
 
