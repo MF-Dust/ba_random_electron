@@ -11,7 +11,7 @@ use crate::config::{
 };
 use crate::models::{ApiResult, AppInfo, PickResultResetPayload, PickedStudent, UpdateResult};
 use crate::picker::{build_weighted_pool, pick_students_with_repeat, pick_students_without_repeat};
-use crate::state::{cached_config, push_log, AppState, DragSession, LogEntry};
+use crate::state::{push_log, refresh_config, AppState, DragSession, LogEntry};
 use crate::update::check_update_from_main;
 use crate::utils::clamp_i32;
 use crate::windows::{
@@ -20,15 +20,14 @@ use crate::windows::{
 };
 #[tauri::command]
 pub(crate) fn get_floating_button_config(
+    app: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<FloatingButtonConfig, String> {
-    Ok(state
-        .inner
-        .lock()
-        .map_err(|_| "状态锁定失败".to_string())?
-        .config
-        .floating_button
-        .clone())
+    let config = refresh_config(&app, &state)?;
+    if let Some(window) = app.get_webview_window("floating") {
+        apply_floating_window_config(&window, &config);
+    }
+    Ok(config.floating_button)
 }
 
 #[tauri::command]
@@ -114,15 +113,11 @@ pub(crate) fn floating_button_set_ignore_mouse(
 
 #[tauri::command]
 pub(crate) fn get_pick_count_config(
+    app: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<PickCountDialogConfig, String> {
-    Ok(state
-        .inner
-        .lock()
-        .map_err(|_| "状态锁定失败".to_string())?
-        .config
-        .pick_count_dialog
-        .clone())
+    let config = refresh_config(&app, &state)?;
+    Ok(config.pick_count_dialog)
 }
 
 #[tauri::command]
@@ -130,6 +125,10 @@ pub(crate) fn open_pick_count(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let config = refresh_config(&app, &state)?;
+    if let Some(window) = app.get_webview_window("floating") {
+        apply_floating_window_config(&window, &config);
+    }
     create_pick_count_window(&app)?;
     if let Some(window) = app.get_webview_window("pick_count") {
         let _ = window.emit("pick-count-open", ());
@@ -171,12 +170,16 @@ pub(crate) fn confirm_pick_count(
     play_music: bool,
 ) -> Result<(), String> {
     let selected_count = clamp_i32(count, MIN_PICK_COUNT, MAX_PICK_COUNT, MIN_PICK_COUNT);
+    let config = refresh_config(&app, &state)?;
     push_log(
         &app,
         &state,
         "info",
         &format!("Pick count confirmed. count={selected_count}, playMusic={play_music}"),
     );
+    if let Some(window) = app.get_webview_window("floating") {
+        apply_floating_window_config(&window, &config);
+    }
     let picked_students = {
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
         if guard.config.allow_repeat_draw {
@@ -240,15 +243,11 @@ pub(crate) fn stop_gacha_sound(state: tauri::State<'_, AppState>) -> Result<(), 
 }
 #[tauri::command]
 pub(crate) fn get_pick_result_config(
+    app: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<PickResultDialogConfig, String> {
-    Ok(state
-        .inner
-        .lock()
-        .map_err(|_| "状态锁定失败".to_string())?
-        .config
-        .pick_result_dialog
-        .clone())
+    let config = refresh_config(&app, &state)?;
+    Ok(config.pick_result_dialog)
 }
 
 #[tauri::command]
@@ -293,8 +292,15 @@ pub(crate) fn close_pick_result(
 }
 
 #[tauri::command]
-pub(crate) fn get_config(state: tauri::State<'_, AppState>) -> Result<AppConfig, String> {
-    cached_config(&state)
+pub(crate) fn get_config(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<AppConfig, String> {
+    let config = refresh_config(&app, &state)?;
+    if let Some(window) = app.get_webview_window("floating") {
+        apply_floating_window_config(&window, &config);
+    }
+    Ok(config)
 }
 
 #[tauri::command]
@@ -399,13 +405,14 @@ pub(crate) fn request_admin_elevation(
 
 #[tauri::command]
 pub(crate) fn create_admin_startup_task(
+    app: AppHandle,
     state: tauri::State<'_, AppState>,
     exe_path: String,
     task_name: String,
 ) -> Result<ApiResult, String> {
     let result = create_admin_startup_task_impl(&task_name, &exe_path);
     if result.ok {
-        let mut config = cached_config(&state)?;
+        let mut config = refresh_config(&app, &state)?;
         config.web_config.admin_auto_start_enabled = true;
         config.web_config.admin_auto_start_path = exe_path.trim().to_string();
         config.web_config.admin_auto_start_task_name = if task_name.trim().is_empty() {

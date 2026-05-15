@@ -3,7 +3,7 @@ use tauri::{
     WebviewWindow, WebviewWindowBuilder,
 };
 
-use crate::config::{save_config, AppConfig};
+use crate::config::{load_config, save_config, AppConfig};
 use crate::models::{PickResultOpenPayload, PickResultResetPayload, PickedStudent};
 use crate::state::AppState;
 fn route_url(route: &str) -> WebviewUrl {
@@ -146,13 +146,19 @@ pub(crate) fn persist_floating_position(app: &AppHandle, state: &tauri::State<'_
     let Ok(position) = window.outer_position() else {
         return;
     };
-    let Ok(mut guard) = state.inner.lock() else {
-        return;
-    };
-    guard.config.floating_button.position.x = Some(position.x);
-    guard.config.floating_button.position.y = Some(position.y);
-    let config_ref = &guard.config;
-    let _ = save_config(config_ref);
+    let mut config = load_config(app).unwrap_or_else(|_| {
+        state
+            .inner
+            .lock()
+            .map(|guard| guard.config.clone())
+            .unwrap_or_default()
+    });
+    config.floating_button.position.x = Some(position.x);
+    config.floating_button.position.y = Some(position.y);
+    let _ = save_config(&config);
+    if let Ok(mut guard) = state.inner.lock() {
+        guard.config = config;
+    }
 }
 
 pub(crate) fn open_pick_result_window(

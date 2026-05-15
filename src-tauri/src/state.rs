@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::admin::SingleInstanceGuard;
 use crate::audio::AudioController;
-use crate::config::AppConfig;
+use crate::config::{load_config, AppConfig};
 use crate::models::PickedStudent;
 use crate::picker::WeightedPool;
 
@@ -63,13 +63,15 @@ pub(crate) struct AppState {
     pub(crate) _single_instance_guard: SingleInstanceGuard,
 }
 
-pub(crate) fn cached_config(state: &tauri::State<'_, AppState>) -> Result<AppConfig, String> {
-    Ok(state
-        .inner
-        .lock()
-        .map_err(|_| "状态锁定失败".to_string())?
-        .config
-        .clone())
+pub(crate) fn refresh_config(
+    app: &AppHandle,
+    state: &tauri::State<'_, AppState>,
+) -> Result<AppConfig, String> {
+    let config = load_config(app)?;
+    let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+    guard.config = config.clone();
+    guard.weighted_pool_cache = None;
+    Ok(config)
 }
 
 pub(crate) fn push_log(
