@@ -24,10 +24,10 @@ defineProps({
 defineEmits(['switch-tab'])
 
 const tabs = [
-  { key: 'list', label: '花名册导入' },
-  { key: 'students', label: '花名册管理' },
-  { key: 'floating', label: '抽取悬浮按钮' },
-  { key: 'pickCount', label: '抽取动画' },
-  { key: 'web', label: '系统服务' }
+  { key: 'list', label: '导入名单' },
+  { key: 'students', label: '管理名单' },
+  { key: 'floating', label: '悬浮按钮' },
+  { key: 'pickCount', label: '抽取效果' },
+  { key: 'web', label: '系统设置' }
 ]
 </script>

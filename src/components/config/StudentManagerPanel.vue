@@ -1,21 +1,21 @@
 <template>
   <div class="student-manager">
-    <p class="desc">老师可以在这里管理当前名单中人员及抽取权重，默认权重为1.0。权重越高，被抽取到的概率越大!</p>
+    <p class="desc">老师可以在这里整理当前名单和抽取权重哦。默认权重是 1.0，数值越高，就越容易被抽到。</p>
     <label class="inline">
       <input type="checkbox" v-model="config.allowRepeatDraw" />
-      是否允许重复抽取（加权真随机）
+      允许重复抽取（加权随机）
     </label>
     <div class="student-list table-wrapper">
-      <div v-if="config.studentList.length === 0" class="empty-tips-text">暂时没有名单哦~请先在“名单导入”中输入。</div>
+      <div v-if="config.studentList.length === 0" class="empty-tips-text">这里还没有名单呢，老师先去“导入名单”填写一下吧。</div>
       <div v-if="config.studentList.length === 0" class="empty-tips-arona">
         <img src="/image/Arona_Empty.webp" alt="Arona Empty" class="empty-tips-arona-img" />
       </div>
       <table class="student-table" v-else>
         <thead>
           <tr>
-            <th class="col-name">学生姓名</th>
-            <th class="col-weight">权重 (0.0 - 2.0)</th>
-            <th class="col-action">删除</th>
+            <th class="col-name">姓名</th>
+            <th class="col-weight">权重（0.0 - 2.0）</th>
+            <th class="col-action">移除</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +34,7 @@
               <span class="weight-val">{{ Number(student.weight).toFixed(1) }}</span>
             </td>
             <td class="col-action">
-              <button type="button" class="del-svg-btn" @click="$emit('remove-student', index)" title="删除">
+              <button type="button" class="del-svg-btn" @click="$emit('remove-student', index)" title="移除">
                 <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -46,7 +46,7 @@
       </table>
     </div>
     <div v-if="config.studentList.length > 0" class="student-actions">
-      <button type="button" class="reset-btn" @click="$emit('reset-weights')">重置所有学生的权重为1.0</button>
+      <button type="button" class="reset-btn" @click="$emit('reset-weights')">将所有权重重置为 1.0</button>
     </div>
   </div>
 </template>

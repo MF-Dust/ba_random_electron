@@ -3,8 +3,8 @@
     <div class="layout">
       <section class="panel panel-left">
         <div class="header">
-          <h1>KVRandom 配置页</h1>
-          <p class="hint">老师可以在这里配置 KVRandom 的各项功能哦！</p>
+          <h1>KVRandom 设置</h1>
+          <p class="hint">老师，欢迎回来。这里可以慢慢调整 KVRandom 的各项设置哦。</p>
         </div>
 
         <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />
@@ -48,7 +48,7 @@
             </div>
           </div>
 
-          <button type="submit" class="save-btn">保存配置</button>
+          <button type="submit" class="save-btn">保存设置</button>
         </form>
       </section>
 

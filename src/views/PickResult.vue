@@ -21,6 +21,7 @@ const {
     :class="{ 'is-closing': isClosing }"
     tabindex="0"
     @click="handleStageClick"
+    @contextmenu.prevent
     @keydown="handleKeydown"
   >
     <div class="result-rows" :class="{ 'is-two-rows': isTwoRows }" :key="animationKey">

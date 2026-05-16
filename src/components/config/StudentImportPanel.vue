@@ -1,16 +1,16 @@
 <template>
   <div class="list-manager">
-    <p class="desc">老师可以手动输入名单（每行一个），或者点击下方按钮导入CSV/TXT文件自动解析！</p>
+    <p class="desc">老师可以在这里手动输入名单，每行一位；也可以导入 CSV 或 TXT 文件，让我帮您自动整理哦。</p>
     <div class="list-actions">
       <button type="button" class="upload-btn" @click="$emit('import-file')">
-        <span>📂 导入文件</span>
+        <span>📂 导入名单文件</span>
       </button>
-      <span class="count-badge">当前导入人数：{{ studentCount }}</span>
+      <span class="count-badge">当前名单人数：{{ studentCount }}</span>
     </div>
     <textarea
       :value="rawListText"
       class="list-textarea"
-      placeholder="请输入名单，每行一个。例如：
+      placeholder="请输入名单，每行一位。例如：
 早濑优香
 小鸟游星野
 空崎日奈"
