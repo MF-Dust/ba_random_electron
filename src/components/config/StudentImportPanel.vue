@@ -10,7 +10,7 @@
         </svg>
         <span>名单导入</span>
       </div>
-      <p class="ba-card-desc">老师可以在这里手动输入名单，每行一位；也可以导入 CSV 或 TXT 文件，让我帮您自动整理哦。</p>
+      <p class="ba-card-desc">老师每行写一个名字就好啦～也可以直接导入 CSV 或 TXT 文件，我会自动帮老师整理好的 ♪</p>
       <div class="ba-import-actions">
         <n-button type="primary" secondary @click="$emit('import-file')">
           <template #icon>
@@ -18,9 +18,9 @@
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
           </template>
-          导入名单文件
+          从文件导入名单
         </n-button>
-        <n-tag type="info" round>当前名单人数：{{ studentCount }}</n-tag>
+        <n-tag type="info" round>已录入 {{ studentCount }} 人</n-tag>
       </div>
       <n-input
         type="textarea"

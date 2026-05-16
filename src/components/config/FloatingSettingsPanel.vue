@@ -6,12 +6,12 @@
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
           <circle cx="12" cy="12" r="3"/>
         </svg>
-        <span>悬浮按钮设置</span>
+        <span>按钮外观</span>
       </div>
 
       <div class="ba-form-item">
-        <label class="ba-label">悬浮按钮大小</label>
-        <p class="ba-sublabel">以 50×50 px 为 100，范围 0-1000</p>
+        <label class="ba-label">按钮大小</label>
+        <p class="ba-sublabel">基础是 50×50 px，100 就是原始尺寸哦～范围 0-1000</p>
         <n-input-number
           v-model:value="config.floatingButton.sizePercent"
           :min="0"
@@ -22,8 +22,8 @@
       </div>
 
       <div class="ba-form-item">
-        <label class="ba-label">悬浮按钮透明度</label>
-        <p class="ba-sublabel">范围 0-100</p>
+        <label class="ba-label">透明度</label>
+        <p class="ba-sublabel">数值越高越透明，设成 0 就完全不透明啦</p>
         <n-slider
           v-model:value="config.floatingButton.transparencyPercent"
           :min="0"
@@ -35,7 +35,7 @@
 
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.floatingButton.alwaysOnTop" />
-        <span class="ba-toggle-label">始终置顶显示</span>
+        <span class="ba-toggle-label">永远置顶显示（不会被其他窗口挡住）</span>
       </div>
     </div>
 
@@ -44,9 +44,9 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
         </svg>
-        <span>位置设置</span>
+        <span>按钮位置</span>
       </div>
-      <p class="ba-card-desc">以屏幕左上角为原点；退出时会自动记住当前位置，留空可恢复默认。</p>
+      <p class="ba-card-desc">屏幕左上角是原点～退出时会自动记住当前位置，留空的话就恢复默认位置哦。</p>
       <div class="ba-position-grid">
         <div class="ba-form-item">
           <label class="ba-label">位置 X</label>

@@ -1,6 +1,6 @@
 <template>
   <div class="ba-card-group">
-    <p class="ba-section-hint">老师请留意，这里的设置会影响程序的基础运行。一般情况下保持默认就可以啦。</p>
+    <p class="ba-section-hint">老师请注意哦～这里的设置会影响程序的基础运行，一般保持默认就可以啦</p>
 
     <!-- 管理员置顶 -->
     <div class="ba-card ba-card-amber">
@@ -8,13 +8,13 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        <span>管理员置顶增强（Windows）</span>
+        <span>管理员置顶增强</span>
       </div>
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.webConfig.adminTopmostEnabled" />
         <div class="ba-toggle-content">
-          <span class="ba-toggle-label">启动时申请管理员权限，以增强置顶效果</span>
-          <span class="ba-toggle-hint">开启后，程序启动时会弹出 UAC 提示，用来提升悬浮按钮的置顶能力。</span>
+          <span class="ba-toggle-label">启动时申请管理员权限</span>
+          <span class="ba-toggle-hint">开启后会弹出 UAC 提示，这样悬浮按钮的置顶效果会更强哦～</span>
         </div>
       </div>
       <n-button type="warning" secondary @click="$emit('request-admin-elevation')">
@@ -23,7 +23,7 @@
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </template>
-        以管理员身份重新启动
+        以管理员身份重启程序
       </n-button>
     </div>
 
@@ -34,7 +34,7 @@
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
-        <span>开机启动任务（管理员运行）</span>
+        <span>开机自动启动</span>
       </div>
       <div class="ba-form-item">
         <label class="ba-label">程序路径（exe）</label>
@@ -47,7 +47,7 @@
         <label class="ba-label">任务名称</label>
         <n-input v-model:value="config.webConfig.adminAutoStartTaskName" />
       </div>
-      <p class="ba-card-desc">点击后会创建或更新计划任务，登录系统时将以管理员权限启动。</p>
+      <p class="ba-card-desc">点击后我会帮老师创建或更新计划任务，登录系统时就会以管理员权限自动启动哦</p>
       <n-button type="primary" secondary @click="$emit('create-admin-startup-task')">
         <template #icon>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -55,7 +55,7 @@
             <polyline points="12 6 12 12 16 14"/>
           </svg>
         </template>
-        创建或更新计划任务
+        创建 / 更新开机任务
       </n-button>
     </div>
 
@@ -74,7 +74,7 @@
           :loading="updateState.loading"
           @click="$emit('check-update')"
         >
-          {{ updateState.loading ? '正在检查中...' : '检查更新' }}
+          {{ updateState.loading ? '正在检查中...' : '检查最新版本' }}
         </n-button>
         <span v-if="updateState.title" class="ba-update-status" :class="`ba-status-${updateState.status}`">
           {{ updateState.title }}
@@ -85,10 +85,10 @@
       </div>
       <div v-if="updateState.commitUrl || updateState.releaseUrl" class="ba-update-links">
         <n-button v-if="updateState.commitUrl" text tag="a" :href="updateState.commitUrl" target="_blank" type="primary" size="small">
-          查看这次提交
+          去看看这次提交
         </n-button>
         <n-button v-if="updateState.releaseUrl" text tag="a" :href="updateState.releaseUrl" target="_blank" type="primary" size="small">
-          查看发布页面
+          去发布页面看看
         </n-button>
       </div>
     </div>
@@ -101,7 +101,7 @@
           <line x1="12" y1="16" x2="12" y2="12"/>
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
-        <span>商标与版权说明</span>
+        <span>商标与版权</span>
       </div>
       <div class="ba-copyright-text">
         <p>"蔚蓝档案"是上海星啸网络科技有限公司的注册商标，版权所有。</p>

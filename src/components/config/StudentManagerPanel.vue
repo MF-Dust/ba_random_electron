@@ -8,19 +8,19 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        <span>名单管理</span>
+        <span>名单一览</span>
       </div>
-      <p class="ba-card-desc">老师可以在这里整理当前名单和抽取权重哦。默认权重是 1.0，数值越高，就越容易被抽到。</p>
+      <p class="ba-card-desc">老师可以在这里查看所有人和他们的抽取权重哦～默认权重是 1.0，数值越高就越容易被抽到，很简单对吧！</p>
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.allowRepeatDraw" />
-        <span class="ba-toggle-label">允许重复抽取（加权随机）</span>
+        <span class="ba-toggle-label">允许重复抽取（同一人可以被抽到多次）</span>
       </div>
     </div>
 
     <div class="ba-card">
       <div v-if="config.studentList.length === 0" class="ba-empty-state">
         <img src="/image/Arona_Empty.webp" alt="Arona Empty" class="ba-empty-img" />
-        <p>这里还没有名单呢，老师先去"导入名单"填写一下吧。</p>
+        <p>这里还没有名单呢～老师先去「导入名单」填写一下吧</p>
       </div>
       <template v-else>
         <div class="ba-table-wrapper">
@@ -65,7 +65,7 @@
         </div>
         <div class="ba-student-actions">
           <n-button secondary type="warning" @click="$emit('reset-weights')">
-            将所有权重重置为 1.0
+            一键重置所有权重为 1.0
           </n-button>
         </div>
       </template>

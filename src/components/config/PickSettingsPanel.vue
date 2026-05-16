@@ -5,27 +5,27 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
         </svg>
-        <span>音效与动画</span>
+        <span>音效 & 动画</span>
       </div>
 
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.pickCountDialog.defaultPlayMusic" />
         <div class="ba-toggle-content">
-          <span class="ba-toggle-label">默认播放抽取背景音乐</span>
-          <span class="ba-toggle-hint">老师如果在上课环境使用，建议先确认是否合适哦</span>
+          <span class="ba-toggle-label">抽选时播放背景音乐</span>
+          <span class="ba-toggle-hint">如果老师在上课时用，记得确认一下环境哦～不要社死了！</span>
         </div>
       </div>
 
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.pickResultDialog.defaultPlayGachaSound" />
         <div class="ba-toggle-content">
-          <span class="ba-toggle-label">默认播放抽取音效</span>
-          <span class="ba-toggle-hint">上课时也请留意当前环境哦</span>
+          <span class="ba-toggle-label">抽选时播放音效</span>
+          <span class="ba-toggle-hint">和音乐一样，上课时请注意音量哦 ♪</span>
         </div>
       </div>
 
       <div class="ba-form-item">
-        <label class="ba-label">抽取音效音量</label>
+        <label class="ba-label">音效音量大小</label>
         <div class="ba-slider-row">
           <n-slider
             v-model:value="config.pickResultDialog.gachaSoundVolume"
@@ -46,7 +46,7 @@
           <line x1="8" y1="21" x2="16" y2="21"/>
           <line x1="12" y1="17" x2="12" y2="21"/>
         </svg>
-        <span>显示效果</span>
+        <span>画面效果</span>
       </div>
 
       <div class="ba-form-item">
@@ -64,8 +64,8 @@
       </div>
 
       <div class="ba-form-item">
-        <label class="ba-label">默认抽取人数</label>
-        <p class="ba-sublabel">范围 {{ MIN_PICK_COUNT }} - {{ MAX_PICK_COUNT }}</p>
+        <label class="ba-label">每次默认抽几人</label>
+        <p class="ba-sublabel">范围 {{ MIN_PICK_COUNT }} - {{ MAX_PICK_COUNT }}，老师按需来就好啦～</p>
         <n-input-number
           v-model:value="config.pickCountDialog.defaultCount"
           :min="MIN_PICK_COUNT"
