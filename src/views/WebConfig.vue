@@ -21,7 +21,7 @@
             </div>
           </div>
 
-          <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />
+          <ConfigTabs :active-tab="activeTab" :tab-groups="tabGroups" @switch-tab="switchTab" />
 
           <div class="ba-sidebar-footer">
             <button type="button" class="ba-save-btn" @click="saveConfig">
@@ -111,7 +111,7 @@ import { useLogStream } from '../composables/useLogStream'
 import { useStudentListSync } from '../composables/useStudentListSync'
 import { useUpdateCheck } from '../composables/useUpdateCheck'
 
-const { activeTab, switchTab } = useConfigTabs()
+const { tabGroups, activeTab, switchTab, getActiveTabMeta } = useConfigTabs()
 const { logs, addLog, startLogStream, stopLogStream } = useLogStream(appApi)
 const {
   config,
@@ -140,24 +140,9 @@ const { updateState, checkUpdate } = useUpdateCheck(appApi, addLog)
 
 const saveConfig = () => saveCurrentConfig(syncTextToList)
 
-const tabTitles = {
-  list: '导入名单',
-  students: '名单一览',
-  floating: '悬浮按钮',
-  pickCount: '抽选演出',
-  web: '系统 & 更新'
-}
-
-const tabHints = {
-  list: '老师～把名单交给我就好啦！粘贴文字或者导入文件都可以哦',
-  students: '这里可以看到所有人的名字和权重哦，想调整的话尽管来～',
-  floating: '悬浮按钮的大小、透明度、位置……老师想怎么摆都行！',
-  pickCount: '音效和动画的设置都在这里～让抽选的瞬间更有仪式感吧！',
-  web: '这里是比较进阶的设置了，一般保持默认就好……不过老师想改的话我也不拦着啦～'
-}
-
-const currentTabTitle = computed(() => tabTitles[activeTab.value] || '设置')
-const currentTabHint = computed(() => tabHints[activeTab.value] || '老师，这里可以调整各项设置哦～')
+const activeTabMeta = computed(() => getActiveTabMeta())
+const currentTabTitle = computed(() => activeTabMeta.value?.title || '设置')
+const currentTabHint = computed(() => activeTabMeta.value?.hint || '老师，这里可以调整各项设置哦～')
 
 // Blue Archive theme overrides for Naive UI
 const baTheme = {

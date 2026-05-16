@@ -1,6 +1,6 @@
 use std::fs;
 use std::hash::{Hash, Hasher};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Position, WebviewWindow};
+use tauri::{AppHandle, Manager, PhysicalPosition, Position, WebviewWindow};
 
 use crate::admin::{create_admin_startup_task_impl, is_process_elevated, request_admin_relaunch};
 use crate::audio::AudioCommand;
@@ -9,14 +9,16 @@ use crate::config::{
     FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
     StudentListParseResult, ADMIN_TASK_DEFAULT_NAME, MAX_PICK_COUNT, MIN_PICK_COUNT,
 };
-use crate::models::{ApiResult, AppInfo, PickResultResetPayload, PickedStudent, UpdateResult};
+use crate::models::{ApiResult, AppInfo, PickedStudent, UpdateResult};
 use crate::picker::{build_weighted_pool, pick_students_with_repeat, pick_students_without_repeat};
 use crate::state::{push_log, refresh_config, AppState, DragSession, LogEntry};
 use crate::update::check_update_from_main;
 use crate::utils::clamp_i32;
 use crate::windows::{
-    apply_floating_window_config, create_floating_window, create_pick_count_window,
-    hide_floating_window, open_pick_result_window, persist_floating_position, show_floating_window,
+    apply_floating_window_config, create_floating_window, hide_floating_window,
+    hide_pick_count_window, open_pick_count_window, open_pick_result_window,
+    persist_floating_position, reset_and_hide_pick_result_window, show_floating_window,
+    stop_pick_count_bgm,
 };
 #[tauri::command]
 pub(crate) fn get_floating_button_config(
@@ -129,12 +131,7 @@ pub(crate) fn open_pick_count(
     if let Some(window) = app.get_webview_window("floating") {
         apply_floating_window_config(&window, &config);
     }
-    create_pick_count_window(&app)?;
-    if let Some(window) = app.get_webview_window("pick_count") {
-        let _ = window.emit("pick-count-open", ());
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
+    open_pick_count_window(&app)?;
     state
         .inner
         .lock()
@@ -149,10 +146,8 @@ pub(crate) fn cancel_pick_count(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("pick_count") {
-        let _ = window.hide();
-        let _ = window.emit("pick-count-stop-bgm", ());
-    }
+    hide_pick_count_window(&app);
+    stop_pick_count_bgm(&app);
     state
         .inner
         .lock()
@@ -200,9 +195,7 @@ pub(crate) fn confirm_pick_count(
         push_log(&app, &state, "info", &format!("Picked students: {names}"));
     }
 
-    if let Some(window) = app.get_webview_window("pick_count") {
-        let _ = window.hide();
-    }
+    hide_pick_count_window(&app);
 
     {
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
@@ -274,19 +267,8 @@ pub(crate) fn close_pick_result(
         guard.floating_hidden_for_pick_count = false;
         guard.pick_result_token
     };
-    if let Some(window) = app.get_webview_window("pick_result") {
-        let _ = window.emit(
-            "pick-result-reset",
-            PickResultResetPayload {
-                token,
-                reason: "close".to_string(),
-            },
-        );
-        let _ = window.hide();
-    }
-    if let Some(window) = app.get_webview_window("pick_count") {
-        let _ = window.emit("pick-count-stop-bgm", ());
-    }
+    reset_and_hide_pick_result_window(&app, token, "close");
+    stop_pick_count_bgm(&app);
     show_floating_window(&app);
     Ok(())
 }
@@ -339,8 +321,7 @@ pub(crate) fn save_app_config(
     save_config(&normalized)?;
     {
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-        guard.config = normalized.clone();
-        guard.weighted_pool_cache = None;
+        guard.apply_config(normalized.clone(), true);
     }
     if let Some(window) = app.get_webview_window("floating") {
         apply_floating_window_config(&window, &normalized);
@@ -422,8 +403,7 @@ pub(crate) fn create_admin_startup_task(
         };
         save_config(&config)?;
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-        guard.config = config;
-        guard.weighted_pool_cache = None;
+        guard.apply_config(config, true);
     }
     Ok(result)
 }

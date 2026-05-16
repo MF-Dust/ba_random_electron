@@ -6,6 +6,12 @@ use tauri::{
 use crate::config::{load_config, save_config, AppConfig};
 use crate::models::{PickResultOpenPayload, PickResultResetPayload, PickedStudent};
 use crate::state::AppState;
+
+const EVENT_FLOATING_CONFIG_UPDATED: &str = "floating-config-updated";
+const EVENT_PICK_COUNT_OPEN: &str = "pick-count-open";
+const EVENT_PICK_COUNT_STOP_BGM: &str = "pick-count-stop-bgm";
+const EVENT_PICK_RESULT_OPEN: &str = "pick-result-open";
+const EVENT_PICK_RESULT_RESET: &str = "pick-result-reset";
 fn route_url(route: &str) -> WebviewUrl {
     if route.is_empty() {
         WebviewUrl::App("index.html".into())
@@ -30,7 +36,7 @@ pub(crate) fn apply_floating_window_config(window: &WebviewWindow, config: &AppC
     ) {
         let _ = window.set_position(Position::Physical(PhysicalPosition { x, y }));
     }
-    let _ = window.emit("floating-config-updated", &config.floating_button);
+    let _ = window.emit(EVENT_FLOATING_CONFIG_UPDATED, &config.floating_button);
 }
 
 pub(crate) fn create_floating_window(
@@ -133,7 +139,46 @@ pub(crate) fn hide_floating_window(app: &AppHandle) {
 }
 
 pub(crate) fn show_floating_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("floating") {
+    show_and_focus_window(app, "floating");
+}
+
+pub(crate) fn open_pick_count_window(app: &AppHandle) -> Result<(), String> {
+    create_pick_count_window(app)?;
+    if let Some(window) = app.get_webview_window("pick_count") {
+        let _ = window.emit(EVENT_PICK_COUNT_OPEN, ());
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+pub(crate) fn hide_pick_count_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("pick_count") {
+        let _ = window.hide();
+    }
+}
+
+pub(crate) fn stop_pick_count_bgm(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("pick_count") {
+        let _ = window.emit(EVENT_PICK_COUNT_STOP_BGM, ());
+    }
+}
+
+pub(crate) fn reset_and_hide_pick_result_window(app: &AppHandle, token: u64, reason: &str) {
+    if let Some(window) = app.get_webview_window("pick_result") {
+        let _ = window.emit(
+            EVENT_PICK_RESULT_RESET,
+            PickResultResetPayload {
+                token,
+                reason: reason.to_string(),
+            },
+        );
+        let _ = window.hide();
+    }
+}
+
+fn show_and_focus_window(app: &AppHandle, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -157,7 +202,7 @@ pub(crate) fn persist_floating_position(app: &AppHandle, state: &tauri::State<'_
     config.floating_button.position.y = Some(position.y);
     let _ = save_config(&config);
     if let Ok(mut guard) = state.inner.lock() {
-        guard.config = config;
+        guard.apply_config(config, false);
     }
 }
 
@@ -174,13 +219,16 @@ pub(crate) fn open_pick_result_window(
 
     if let Some(window) = app.get_webview_window("pick_result") {
         let _ = window.emit(
-            "pick-result-reset",
+            EVENT_PICK_RESULT_RESET,
             PickResultResetPayload {
                 token,
                 reason: "before-open".to_string(),
             },
         );
-        let _ = window.emit("pick-result-open", PickResultOpenPayload { token, results });
+        let _ = window.emit(
+            EVENT_PICK_RESULT_OPEN,
+            PickResultOpenPayload { token, results },
+        );
         let _ = window.show();
         let _ = window.set_focus();
     }

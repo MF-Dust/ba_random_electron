@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, Student};
 use crate::models::PickedStudent;
 
 const WEIGHT_BOOST_GAMMA: f64 = 1.5;
@@ -11,21 +11,21 @@ pub(crate) struct WeightedPool {
     pub(crate) entries: Vec<(String, f64)>,
     pub(crate) total_weight: f64,
 }
+
+fn valid_student_entries(students: &[Student]) -> impl Iterator<Item = (String, f64)> + '_ {
+    students.iter().filter_map(|student| {
+        let name = student.name.trim();
+        if name.is_empty() {
+            None
+        } else {
+            Some((name.to_string(), student.weight.max(0.0)))
+        }
+    })
+}
+
 pub(crate) fn build_weighted_pool(config: &AppConfig) -> WeightedPool {
-    let entries = config
-        .student_list
-        .iter()
-        .filter_map(|student| {
-            let name = student.name.trim();
-            if name.is_empty() {
-                None
-            } else {
-                Some((
-                    name.to_string(),
-                    student.weight.max(0.0).powf(WEIGHT_BOOST_GAMMA),
-                ))
-            }
-        })
+    let entries = valid_student_entries(&config.student_list)
+        .map(|(name, weight)| (name, weight.powf(WEIGHT_BOOST_GAMMA)))
         .collect::<Vec<_>>();
     let total_weight = entries.iter().map(|(_, weight)| *weight).sum();
     WeightedPool {
@@ -68,18 +68,7 @@ pub(crate) fn pick_students_with_repeat(
 }
 
 pub(crate) fn pick_students_without_repeat(config: &AppConfig, count: i32) -> Vec<PickedStudent> {
-    let pool = config
-        .student_list
-        .iter()
-        .filter_map(|student| {
-            let name = student.name.trim();
-            if name.is_empty() {
-                None
-            } else {
-                Some((name.to_string(), student.weight.max(0.0)))
-            }
-        })
-        .collect::<Vec<_>>();
+    let pool = valid_student_entries(&config.student_list).collect::<Vec<_>>();
 
     if pool.is_empty() || count <= 0 {
         return Vec::new();

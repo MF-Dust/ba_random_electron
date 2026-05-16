@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { DEFAULT_ADMIN_TASK_NAME, createDefaultConfig } from '../configDefaults'
+import { studentListToText } from '../studentListText'
 
 export function useAppConfig(appApi, addLog) {
   const config = ref(createDefaultConfig())
@@ -19,7 +20,7 @@ export function useAppConfig(appApi, addLog) {
     try {
       config.value = await appApi.getConfig()
       if (rawListText) {
-        rawListText.value = (config.value.studentList || []).map(s => s.name).join('\n')
+        rawListText.value = studentListToText(config.value.studentList || [])
       }
       applyDefaultAutoStartPath()
       addLog('info', '配置已加载')

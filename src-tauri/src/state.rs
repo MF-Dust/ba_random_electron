@@ -55,6 +55,13 @@ impl RuntimeState {
             log_dedup: HashMap::new(),
         }
     }
+
+    pub(crate) fn apply_config(&mut self, config: AppConfig, reset_weighted_pool: bool) {
+        self.config = config;
+        if reset_weighted_pool {
+            self.weighted_pool_cache = None;
+        }
+    }
 }
 
 pub(crate) struct AppState {
@@ -69,8 +76,7 @@ pub(crate) fn refresh_config(
 ) -> Result<AppConfig, String> {
     let config = load_config(app)?;
     let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-    guard.config = config.clone();
-    guard.weighted_pool_cache = None;
+    guard.apply_config(config.clone(), true);
     Ok(config)
 }
 

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { studentListToText } from '../studentListText'
 
 export function useStudentListSync(appApi, config, addLog) {
   const rawListText = ref('')
@@ -40,7 +41,7 @@ export function useStudentListSync(appApi, config, addLog) {
       textSyncTimer = null
     }
     textSyncRunId += 1
-    rawListText.value = config.value.studentList.map(s => s.name).join('\n')
+    rawListText.value = studentListToText(config.value.studentList || [])
   }
 
   const removeStudent = (index) => {
