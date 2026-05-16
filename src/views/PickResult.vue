@@ -24,32 +24,35 @@ const {
     @contextmenu.prevent
     @keydown="handleKeydown"
   >
-    <div class="result-rows" :class="{ 'is-two-rows': isTwoRows }" :key="animationKey">
-      <div class="result-row">
-        <div
-          v-for="(item, index) in topRow"
-          :key="`top-${index}-${item.name}`"
-          class="letter-card"
-          :class="`is-${item.rarity}`"
-          :style="{ '--index': index }"
-        >
-          <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
-          <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index }">
-            <span>{{ item.name }}</span>
+    <div v-if="results.length" class="quick-result">
+
+      <div class="result-rows" :class="{ 'is-two-rows': isTwoRows }" :key="animationKey">
+        <div class="result-row">
+          <div
+            v-for="(item, index) in topRow"
+            :key="`top-${index}-${item.name}`"
+            class="letter-card"
+            :class="`is-${item.rarity}`"
+            :style="{ '--index': index }"
+          >
+            <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
+            <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index }">
+              <span>{{ item.name }}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div v-if="isTwoRows" class="result-row">
-        <div
-          v-for="(item, index) in bottomRow"
-          :key="`bottom-${index}-${item.name}`"
-          class="letter-card"
-          :class="`is-${item.rarity}`"
-          :style="{ '--index': index + 5 }"
-        >
-          <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
-          <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index + 5 }">
-            <span>{{ item.name }}</span>
+        <div v-if="isTwoRows" class="result-row">
+          <div
+            v-for="(item, index) in bottomRow"
+            :key="`bottom-${index}-${item.name}`"
+            class="letter-card"
+            :class="`is-${item.rarity}`"
+            :style="{ '--index': index + 5 }"
+          >
+            <img class="letter-img" :src="`/image/${item.rarity}.png`" alt="letter" />
+            <div class="name-card" :class="{ 'is-reveal': revealStarted }" :style="{ '--reveal-index': index + 5 }">
+              <span>{{ item.name }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -76,6 +79,14 @@ const {
   pointer-events: none;
   animation: result-fade-out 220ms ease forwards;
 }
+
+.quick-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
 
 .result-rows {
   display: flex;

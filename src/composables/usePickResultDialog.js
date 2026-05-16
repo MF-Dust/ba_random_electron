@@ -7,13 +7,14 @@ const pityCounter = ref(0)
 export function usePickResultDialog() {
   const results = ref([])
   const animationKey = ref(0)
-  const instructionText = ref('点击任意位置关闭')
   const revealStarted = ref(false)
   const canClose = ref(false)
   const isClosing = ref(false)
   const lastToken = ref(0)
   const playGachaSound = ref(true)
   const gachaSoundVolume = ref(0.6)
+  const resultMode = ref('quick')
+  const instructionText = computed(() => resultMode.value === 'full' ? '点击任意位置返回快速模式' : '点击任意位置关闭')
 
   let revealTimer = null
   let closeTimer = null
@@ -70,6 +71,7 @@ export function usePickResultDialog() {
     revealStarted.value = false
     canClose.value = false
     isClosing.value = false
+    resultMode.value = 'quick'
     if (revealTimer) {
       clearTimeout(revealTimer)
       revealTimer = null
@@ -106,6 +108,8 @@ export function usePickResultDialog() {
       canClose.value = true
       return
     }
+
+    resultMode.value = 'quick'
 
     const totalDelayMs = (Math.max(results.value.length - 1, 0) * 120) + 600
     revealTimer = setTimeout(() => {
