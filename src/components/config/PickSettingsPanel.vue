@@ -1,31 +1,79 @@
 <template>
-  <div>
-    <label class="inline">
-      <input type="checkbox" v-model="config.pickCountDialog.defaultPlayMusic" />
-      默认播放抽取背景音乐（老师如果在上课环境使用，建议先确认是否合适哦）
-    </label>
-    <label class="inline">
-      <input type="checkbox" v-model="config.pickResultDialog.defaultPlayGachaSound" />
-      默认播放抽取音效（上课时也请留意当前环境哦）
-    </label>
-    <label>
-      抽取音效音量（0.0 - 1.0）
-      <input type="number" v-model.number="config.pickResultDialog.gachaSoundVolume" min="0" max="1" step="0.05" required />
-    </label>
-    <label>
-      背景变暗程度（0-100）
-      <input type="number" v-model.number="config.pickCountDialog.backgroundDarknessPercent" min="0" max="100" required />
-    </label>
-    <label>
-      默认抽取人数（{{ MIN_PICK_COUNT }}-{{ MAX_PICK_COUNT }}）
-      <input
-        type="number"
-        v-model.number="config.pickCountDialog.defaultCount"
-        :min="MIN_PICK_COUNT"
-        :max="MAX_PICK_COUNT"
-        required
-      />
-    </label>
+  <div class="ba-card-group">
+    <div class="ba-card">
+      <div class="ba-card-header">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        <span>音效与动画</span>
+      </div>
+
+      <div class="ba-toggle-row">
+        <n-switch v-model:value="config.pickCountDialog.defaultPlayMusic" />
+        <div class="ba-toggle-content">
+          <span class="ba-toggle-label">默认播放抽取背景音乐</span>
+          <span class="ba-toggle-hint">老师如果在上课环境使用，建议先确认是否合适哦</span>
+        </div>
+      </div>
+
+      <div class="ba-toggle-row">
+        <n-switch v-model:value="config.pickResultDialog.defaultPlayGachaSound" />
+        <div class="ba-toggle-content">
+          <span class="ba-toggle-label">默认播放抽取音效</span>
+          <span class="ba-toggle-hint">上课时也请留意当前环境哦</span>
+        </div>
+      </div>
+
+      <div class="ba-form-item">
+        <label class="ba-label">抽取音效音量</label>
+        <div class="ba-slider-row">
+          <n-slider
+            v-model:value="config.pickResultDialog.gachaSoundVolume"
+            :min="0"
+            :max="1"
+            :step="0.05"
+            style="flex: 1;"
+          />
+          <span class="ba-slider-value">{{ (config.pickResultDialog.gachaSoundVolume * 100).toFixed(0) }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ba-card">
+      <div class="ba-card-header">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span>显示效果</span>
+      </div>
+
+      <div class="ba-form-item">
+        <label class="ba-label">背景变暗程度</label>
+        <div class="ba-slider-row">
+          <n-slider
+            v-model:value="config.pickCountDialog.backgroundDarknessPercent"
+            :min="0"
+            :max="100"
+            :step="1"
+            style="flex: 1;"
+          />
+          <span class="ba-slider-value">{{ config.pickCountDialog.backgroundDarknessPercent }}%</span>
+        </div>
+      </div>
+
+      <div class="ba-form-item">
+        <label class="ba-label">默认抽取人数</label>
+        <p class="ba-sublabel">范围 {{ MIN_PICK_COUNT }} - {{ MAX_PICK_COUNT }}</p>
+        <n-input-number
+          v-model:value="config.pickCountDialog.defaultCount"
+          :min="MIN_PICK_COUNT"
+          :max="MAX_PICK_COUNT"
+          style="width: 100%;"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -39,3 +87,91 @@ defineProps({
   }
 })
 </script>
+
+<style scoped>
+.ba-card-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ba-card {
+  background: #ffffff;
+  border: 1px solid rgba(18, 138, 250, 0.10);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: box-shadow 0.25s, transform 0.25s;
+}
+
+.ba-card:hover {
+  box-shadow: 0 4px 20px rgba(18, 138, 250, 0.08);
+  transform: translateY(-1px);
+}
+
+.ba-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #128afa;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.ba-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ba-toggle-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ba-toggle-label {
+  font-size: 14px;
+  color: #1a3a5c;
+  font-weight: 500;
+}
+
+.ba-toggle-hint {
+  font-size: 12px;
+  color: #8ca3bf;
+}
+
+.ba-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ba-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a3a5c;
+}
+
+.ba-sublabel {
+  margin: 0;
+  font-size: 12px;
+  color: #8ca3bf;
+}
+
+.ba-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ba-slider-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #128afa;
+  min-width: 40px;
+  text-align: right;
+}
+</style>

@@ -1,17 +1,51 @@
 <template>
-  <main class="page">
-    <div class="layout">
-      <section class="panel panel-left">
-        <div class="header">
-          <h1>KVRandom 设置</h1>
-          <p class="hint">老师，欢迎回来。这里可以慢慢调整 KVRandom 的各项设置哦。</p>
-        </div>
+  <n-config-provider :theme-overrides="baTheme">
+    <main class="ba-page">
+      <!-- Cross-hatch background decorations -->
+      <div class="ba-bg-grid"></div>
+      <div class="ba-bg-circle ba-bg-circle-1"></div>
+      <div class="ba-bg-circle ba-bg-circle-2"></div>
 
-        <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />
+      <div class="ba-shell">
+        <!-- Sidebar -->
+        <aside class="ba-sidebar">
+          <div class="ba-sidebar-brand">
+            <div class="ba-logo">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div class="ba-brand-text">
+              <h1>KVRandom</h1>
+              <p>设置面板</p>
+            </div>
+          </div>
 
-        <form id="config-form" @submit.prevent="saveConfig">
-          <div class="tab-container">
-            <div class="tab-content" v-if="activeTab === 'list'" key="list">
+          <ConfigTabs :active-tab="activeTab" @switch-tab="switchTab" />
+
+          <div class="ba-sidebar-footer">
+            <button type="button" class="ba-save-btn" @click="saveConfig">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              <span>保存设置</span>
+            </button>
+          </div>
+        </aside>
+
+        <!-- Main content area -->
+        <div class="ba-main">
+          <!-- Content header -->
+          <div class="ba-content-header">
+            <h2 class="ba-content-title">{{ currentTabTitle }}</h2>
+            <p class="ba-content-hint">老师，欢迎回来。这里可以慢慢调整 KVRandom 的各项设置哦。</p>
+          </div>
+
+          <!-- Scrollable content -->
+          <form id="config-form" class="ba-content-body" @submit.prevent="saveConfig">
+            <div class="ba-tab-content" v-if="activeTab === 'list'" key="list">
               <StudentImportPanel
                 v-model:raw-list-text="rawListText"
                 :student-count="config.studentList.length"
@@ -20,7 +54,7 @@
               />
             </div>
 
-            <div class="tab-content" v-else-if="activeTab === 'students'" key="students">
+            <div class="ba-tab-content" v-else-if="activeTab === 'students'" key="students">
               <StudentManagerPanel
                 :config="config"
                 @sync-list-to-text="syncListToText"
@@ -29,15 +63,15 @@
               />
             </div>
 
-            <div class="tab-content" v-else-if="activeTab === 'floating'" key="floating">
+            <div class="ba-tab-content" v-else-if="activeTab === 'floating'" key="floating">
               <FloatingSettingsPanel :config="config" />
             </div>
 
-            <div class="tab-content" v-else-if="activeTab === 'pickCount'" key="pickCount">
+            <div class="ba-tab-content" v-else-if="activeTab === 'pickCount'" key="pickCount">
               <PickSettingsPanel :config="config" />
             </div>
 
-            <div class="tab-content" v-else-if="activeTab === 'web'" key="web">
+            <div class="ba-tab-content" v-else-if="activeTab === 'web'" key="web">
               <SystemSettingsPanel
                 :config="config"
                 :update-state="updateState"
@@ -46,24 +80,23 @@
                 @check-update="checkUpdate"
               />
             </div>
-          </div>
+          </form>
 
-          <button type="submit" class="save-btn">保存设置</button>
-        </form>
-      </section>
-
-      <RuntimeLogPanel
-        :logs="logs"
-        :is-debug-mode="isDebugMode"
-        :is-admin="isAdmin"
-        :app-version="appVersion"
-      />
-    </div>
-  </main>
+          <!-- Collapsible log panel -->
+          <RuntimeLogPanel
+            :logs="logs"
+            :is-debug-mode="isDebugMode"
+            :is-admin="isAdmin"
+            :app-version="appVersion"
+          />
+        </div>
+      </div>
+    </main>
+  </n-config-provider>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import ConfigTabs from '../components/config/ConfigTabs.vue'
 import FloatingSettingsPanel from '../components/config/FloatingSettingsPanel.vue'
 import PickSettingsPanel from '../components/config/PickSettingsPanel.vue'
@@ -107,6 +140,64 @@ const { updateState, checkUpdate } = useUpdateCheck(appApi, addLog)
 
 const saveConfig = () => saveCurrentConfig(syncTextToList)
 
+const tabTitles = {
+  list: '导入名单',
+  students: '管理名单',
+  floating: '悬浮按钮',
+  pickCount: '抽取效果',
+  web: '系统设置'
+}
+
+const currentTabTitle = computed(() => tabTitles[activeTab.value] || '设置')
+
+// Blue Archive theme overrides for Naive UI
+const baTheme = {
+  common: {
+    primaryColor: '#128AFA',
+    primaryColorHover: '#3EA8FF',
+    primaryColorPressed: '#0068DF',
+    primaryColorSuppl: '#128AFA',
+    infoColor: '#128AFA',
+    infoColorHover: '#3EA8FF',
+    infoColorPressed: '#0068DF',
+    successColor: '#36B37E',
+    successColorHover: '#57D9A3',
+    successColorPressed: '#2D9F6F',
+    warningColor: '#F3B900',
+    warningColorHover: '#FFD84D',
+    warningColorPressed: '#D4A200',
+    errorColor: '#E05454',
+    errorColorHover: '#F07070',
+    errorColorPressed: '#C24040',
+    borderRadius: '8px',
+    borderRadiusSmall: '6px',
+    fontFamily: '"Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif',
+    fontSize: '14px'
+  },
+  Button: {
+    borderRadiusMedium: '10px',
+    borderRadiusSmall: '8px',
+    fontWeightStrong: '700'
+  },
+  Switch: {
+    railColorActive: '#128AFA'
+  },
+  Slider: {
+    fillColor: '#128AFA',
+    fillColorHover: '#3EA8FF',
+    handleColor: '#128AFA'
+  },
+  Input: {
+    borderRadius: '8px',
+    borderHover: '1px solid #128AFA',
+    borderFocus: '1px solid #128AFA',
+    boxShadowFocus: '0 0 0 3px rgba(18, 138, 250, 0.12)'
+  },
+  Tag: {
+    borderRadius: '20px'
+  }
+}
+
 onMounted(() => {
   fetchConfig(rawListText)
   startLogStream()
@@ -120,571 +211,306 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+/* ============================================
+   Blue Archive Settings Page — Global Styles
+   ============================================ */
+
 :root {
-  --ba-blue: #1284ff;
-  --ba-blue-strong: #0068df;
-  --ba-blue-soft: #e8f4ff;
-  --ba-blue-line: #b7d9f8;
-  --ba-yellow: #ffd84d;
-  --ba-yellow-strong: #f3b900;
-  --ba-ink: #10243f;
-  --ba-muted: #5f7694;
-  --ba-panel: #ffffff;
-  --ba-surface: #f6fbff;
-  --ba-line: #d7e5f3;
-  --ba-shadow: 0 18px 34px rgba(36, 91, 145, 0.14);
+  --ba-blue: #128AFA;
+  --ba-blue-hover: #3EA8FF;
+  --ba-blue-strong: #0068DF;
+  --ba-blue-soft: #E8F4FF;
+  --ba-yellow: #FFD84D;
+  --ba-yellow-strong: #F3B900;
+  --ba-ink: #1A3A5C;
+  --ba-muted: #5A7394;
+  --ba-sidebar-w: 220px;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   height: 100%;
   margin: 0;
   overflow: hidden;
 }
 
-.page {
+/* ---- Page shell ---- */
+.ba-page {
+  position: relative;
   height: 100vh;
-  padding: 24px;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  font-family: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", sans-serif;
-  background:
-    linear-gradient(90deg, rgba(18, 132, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(18, 132, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(180deg, #f7fcff 0%, #edf7ff 52%, #f9fcff 100%);
-  background-size: 28px 28px, 28px 28px, auto;
+  font-family: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
   color: var(--ba-ink);
+  overflow: hidden;
+  background: linear-gradient(160deg, #f0f7ff 0%, #e6f1ff 40%, #f5f9ff 100%);
+}
+
+/* ---- Decorative background ---- */
+.ba-bg-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(18, 138, 250, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(18, 138, 250, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ba-bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ba-bg-circle-1 {
+  width: 400px;
+  height: 400px;
+  top: -120px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(18, 138, 250, 0.06) 0%, transparent 70%);
+}
+
+.ba-bg-circle-2 {
+  width: 300px;
+  height: 300px;
+  bottom: -60px;
+  left: -40px;
+  background: radial-gradient(circle, rgba(243, 185, 0, 0.05) 0%, transparent 70%);
+}
+
+/* ---- Main shell grid ---- */
+.ba-shell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: var(--ba-sidebar-w) 1fr;
+  height: 100vh;
+  gap: 0;
+}
+
+/* ============================================
+   Sidebar
+   ============================================ */
+.ba-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(18, 138, 250, 0.08);
+  padding: 20px 12px;
+  gap: 4px;
+}
+
+.ba-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 18px;
+  border-bottom: 1px solid rgba(18, 138, 250, 0.08);
+  margin-bottom: 12px;
+}
+
+.ba-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #128AFA 0%, #3EA8FF 100%);
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(18, 138, 250, 0.25);
+}
+
+.ba-brand-text h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0c2d4f;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.ba-brand-text p {
+  margin: 0;
+  font-size: 11px;
+  color: #8ca3bf;
+  font-weight: 500;
+}
+
+.ba-sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(18, 138, 250, 0.08);
+}
+
+/* ---- Save button ---- */
+.ba-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #FFE066 0%, var(--ba-yellow) 40%, var(--ba-yellow-strong) 100%);
+  color: #5b4100;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(243, 185, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
   overflow: hidden;
 }
 
-.layout {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  grid-template-rows: 1fr;
-  gap: 18px;
+.ba-save-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
 }
 
-.page .panel {
-  background: var(--ba-panel);
-  border: 1px solid var(--ba-line);
-  border-top: 4px solid var(--ba-blue);
-  border-radius: 12px;
-  box-shadow: var(--ba-shadow);
+.ba-save-btn:hover {
+  box-shadow: 0 6px 20px rgba(243, 185, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.ba-save-btn:hover::after {
+  transform: translateX(100%);
+}
+
+.ba-save-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(243, 185, 0, 0.2);
+}
+
+/* ============================================
+   Main content area
+   ============================================ */
+.ba-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  min-width: 0;
+  overflow: hidden;
 }
 
-.page .panel-left {
-  padding: 20px 22px;
+.ba-content-header {
+  padding: 22px 28px 16px;
+  border-bottom: 1px solid rgba(18, 138, 250, 0.06);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
 }
 
-.page .panel-right {
-  padding: 18px;
-}
-
-.header {
+.ba-content-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0c2d4f;
+  letter-spacing: -0.01em;
   position: relative;
-  padding: 2px 0 14px 18px;
-  border-bottom: 1px solid var(--ba-line);
-  text-align: left;
+  display: inline-block;
 }
 
-.header::before {
+.ba-content-title::after {
   content: "";
   position: absolute;
   left: 0;
-  top: 5px;
-  width: 6px;
-  height: 42px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--ba-blue), #76c7ff);
+  bottom: -4px;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ba-blue) 0%, var(--ba-blue-hover) 100%);
+  opacity: 0.6;
 }
 
-.page h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
-  letter-spacing: 0;
-  color: #0c315f;
-}
-
-.hint {
+.ba-content-hint {
   margin: 8px 0 0;
+  font-size: 13px;
   color: var(--ba-muted);
-  font-size: 14px;
 }
 
-.page .tabs {
-  display: flex;
-  margin: 16px 0 14px;
-  padding: 3px;
-  gap: 4px;
-  border: 1px solid var(--ba-blue-line);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff 0%, #edf7ff 100%);
-}
-
-.page .tab-btn {
+/* Scrollable form body */
+.ba-content-body {
   flex: 1;
-  min-height: 38px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: #c4ddf5 transparent;
+}
+
+.ba-content-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ba-content-body::-webkit-scrollbar-track {
   background: transparent;
-  border: none;
-  border-radius: 7px;
-  color: #315578;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.page .tab-btn:hover {
-  color: var(--ba-blue-strong);
-  background: rgba(18, 132, 255, 0.1);
+.ba-content-body::-webkit-scrollbar-thumb {
+  background: #c4ddf5;
+  border-radius: 3px;
 }
 
-.page .tab-btn.active {
-  color: #ffffff;
-  background: linear-gradient(180deg, #35a8ff 0%, var(--ba-blue-strong) 100%);
-  box-shadow: 0 8px 16px rgba(0, 104, 223, 0.24);
+.ba-content-body::-webkit-scrollbar-thumb:hover {
+  background: #9bcfff;
 }
 
-.page #config-form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  height: 0;
-  min-height: 0;
+.ba-tab-content {
+  animation: ba-fade-in 0.3s ease;
 }
 
-.tab-container {
-  flex: 1 1 0;
-  min-height: 0;
-  height: 0;
-  overflow-y: auto;
-  padding: 12px 8px 12px 0;
-  position: relative;
-  scrollbar-color: #9bcfff transparent;
-}
-
-.tab-content {
-  padding: 0;
-}
-
-.list-manager,
-.student-manager,
-.admin-block {
-  border: 1px solid var(--ba-line);
-  border-radius: 10px;
-  background: var(--ba-surface);
-}
-
-.list-manager,
-.student-manager {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.page .desc {
-  margin: 0;
-  color: var(--ba-muted);
-  line-height: 1.65;
-  font-size: 14px;
-}
-
-.list-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.upload-btn,
-.reset-btn,
-.admin-btn,
-.update-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--ba-blue-line);
-  background: linear-gradient(180deg, #ffffff 0%, var(--ba-blue-soft) 100%);
-  color: #0f4d88;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 6px 12px rgba(32, 96, 150, 0.12);
-  transition: all 0.2s ease;
-}
-
-.upload-btn:hover,
-.reset-btn:hover,
-.admin-btn:hover,
-.update-btn:hover:not(:disabled) {
-  border-color: #62b8ff;
-  background: linear-gradient(180deg, #ffffff 0%, #d9efff 100%);
-}
-
-.upload-btn:active,
-.reset-btn:active,
-.admin-btn:active,
-.update-btn:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: none;
-}
-
-.count-badge,
-.debug-badge,
-.admin-badge,
-.version-badge {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--ba-blue-line);
-  background: #ffffff;
-  color: #245b91;
-}
-
-.debug-badge {
-  color: #ffffff;
-  background: var(--ba-blue);
-  border-color: var(--ba-blue);
-}
-
-.admin-badge {
-  color: #5b4100;
-  background: #fff3bd;
-  border-color: #f2cf62;
-}
-
-.list-textarea {
-  width: 100%;
-  height: 200px;
-  min-height: 120px;
-  border: 1px solid #bdd4eb;
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 15px;
-  resize: vertical;
-  line-height: 1.6;
-  font-family: inherit;
-  background: #ffffff;
-  color: var(--ba-ink);
-}
-
-.list-textarea:focus {
-  outline: none;
-  border-color: var(--ba-blue);
-  box-shadow: 0 0 0 3px rgba(18, 132, 255, 0.16);
-}
-
-.page label {
-  display: block;
-  margin: 10px 0;
-  font-size: 14px;
-  color: var(--ba-ink);
-}
-
-.page .inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.page input[type="number"],
-.page input[type="text"],
-.page textarea,
-.page select {
-  width: 100%;
-  margin-top: 6px;
-  border: 1px solid #bdd4eb;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 15px;
-  background: #ffffff;
-  color: var(--ba-ink);
-  transition: all 160ms ease;
-}
-
-.page input[type="number"]:focus,
-.page input[type="text"]:focus,
-.page textarea:focus,
-.page select:focus {
-  outline: none;
-  border-color: var(--ba-blue);
-  box-shadow: 0 0 0 3px rgba(18, 132, 255, 0.16);
-}
-
-.page input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--ba-blue);
-}
-
-.page .row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.save-btn {
-  margin-top: 20px;
-  width: 100%;
-  min-height: 46px;
-  border: 1px solid #e3b900;
-  border-radius: 10px;
-  padding: 13px 14px;
-  color: #3b2b00;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  background: linear-gradient(180deg, #fff27a 0%, var(--ba-yellow) 52%, var(--ba-yellow-strong) 100%);
-  box-shadow: 0 10px 18px rgba(197, 144, 0, 0.22);
-  transition: all 0.2s ease;
-}
-
-.save-btn:hover {
-  background: linear-gradient(180deg, #fff79d 0%, #ffe060 58%, #ffc928 100%);
-}
-
-.save-btn:active {
-  transform: translateY(1px);
-  box-shadow: inset 0 2px 4px rgba(122, 84, 0, 0.18);
-}
-
-.update-card {
-  margin-top: 0px;
-  border: 1px solid var(--ba-line);
-  border-radius: 12px;
-  padding: 14px 16px;
-  background: #ffffff;
-}
-
-.update-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.update-btn {
-  color: #ffffff;
-  border-color: var(--ba-blue-strong);
-  background: linear-gradient(180deg, #42b2ff 0%, var(--ba-blue-strong) 100%);
-}
-
-.update-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #62c2ff 0%, #0877ef 100%);
-}
-
-.update-status {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ba-muted);
-}
-
-.update-status.status-update { color: #1b5fd1; }
-.update-status.status-ok { color: #2f7d4b; }
-.update-status.status-error { color: #c24040; }
-
-.update-detail {
-  margin-top: 10px;
-  border: 1px solid var(--ba-line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #ffffff;
-  font-size: 13px;
-  color: var(--ba-muted);
-  white-space: pre-wrap;
-}
-
-.admin-block {
-  margin-top: 18px;
-  padding: 15px 16px;
-  background: #f7fbff;
-}
-
-.admin-block.always-top-block {
-  background: #fff9e8;
-  border-color: #ecd27d;
-}
-
-.admin-block.update-block {
-  background: #f8f3ff;
-  border-color: #cdb7f5;
-}
-
-.admin-title {
-  margin: 0 0 8px;
-  font-weight: 700;
-  color: #0d3a67;
-  font-size: 15px;
-}
-
-.admin-hint {
-  margin: 6px 0 10px;
-  font-size: 13px;
-  color: var(--ba-muted);
-  line-height: 1.55;
-}
-
-.table-wrapper {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid var(--ba-line);
-  border-radius: 10px;
-  background: #ffffff;
-}
-
-.student-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.student-table th {
-  padding: 10px 14px;
-  background: linear-gradient(180deg, #eaf6ff 0%, #dceeff 100%);
-  color: #174a78;
-  font-weight: 600;
-  border-bottom: 1px solid var(--ba-blue-line);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.student-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid #e1e9f2;
-  color: var(--ba-ink);
-}
-
-.student-table tbody tr:hover {
-  background: #f5fbff;
-}
-
-.weight-slider {
-  vertical-align: middle;
-  width: 120px;
-  accent-color: var(--ba-blue);
-}
-
-.weight-val {
-  display: inline-block;
-  width: 30px;
-  margin-left: 8px;
-  font-size: 13px;
-  color: #1c6dae;
-  font-weight: 700;
-  vertical-align: middle;
-}
-
-.del-svg-btn {
-  background: none;
-  border: none;
-  color: #d44747;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.del-svg-btn:hover {
-  background: #fff0f0;
-}
-
-.log-header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-  padding-bottom: 13px;
-  border-bottom: 1px solid var(--ba-line);
-}
-
-.log-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.log-header h2 {
-  margin: 0;
-  font-size: 19px;
-  color: #0c315f;
-}
-
-.log-list {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 10px;
-  padding: 14px 6px 0 0;
-  overflow: auto;
-}
-
-.log-item {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid var(--ba-line);
-  font-size: 13px;
-}
-
-.log-item.log-info { border-left: 4px solid var(--ba-blue); }
-.log-item.log-success {
-  border-left: 4px solid #3cb878;
-  background: #f5fff9;
-}
-.log-item.log-error {
-  border-left: 4px solid #e05454;
-  background: #fff7f7;
-}
-
-.log-time {
-  font-variant-numeric: tabular-nums;
-  color: #8094aa;
-}
-
-.log-text {
-  color: var(--ba-ink);
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.log-empty {
-  padding: 12px;
-  color: var(--ba-muted);
-  text-align: center;
-  background: #f8fcff;
-  border: 1px dashed var(--ba-blue-line);
-  border-radius: 8px;
-}
-
-@media (max-width: 900px) {
-  .page { padding: 14px; }
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) 320px;
+@keyframes ba-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-  .page .tabs { overflow-x: auto; }
-  .page .tab-btn { min-width: 112px; }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+  :root {
+    --ba-sidebar-w: 64px;
+  }
+
+  .ba-brand-text,
+  .ba-save-btn span {
+    display: none;
+  }
+
+  .ba-sidebar-brand {
+    justify-content: center;
+    padding-bottom: 12px;
+  }
+
+  .ba-save-btn {
+    padding: 12px;
+  }
+
+  .ba-content-header {
+    padding: 16px 18px 12px;
+  }
+
+  .ba-content-body {
+    padding: 14px 18px;
+  }
 }
 </style>
-
