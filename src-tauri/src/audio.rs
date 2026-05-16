@@ -19,11 +19,9 @@ pub(crate) struct AudioController {
 
 impl AudioController {
     pub(crate) fn new(app: &AppHandle) -> Self {
-        let click_bytes = load_asset_bytes(app, "sound/button_click.wav");
-        let bgm_bytes = load_asset_bytes(app, "sound/bgm.mp3");
-        let gacha_bytes = load_asset_bytes(app, "sound/gacha_loading.ogg");
         let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || run_audio_thread(rx, click_bytes, bgm_bytes, gacha_bytes));
+        let app = app.clone();
+        std::thread::spawn(move || run_audio_thread(rx, app));
         Self { tx }
     }
 
@@ -32,28 +30,28 @@ impl AudioController {
     }
 }
 
-fn run_audio_thread(
-    rx: mpsc::Receiver<AudioCommand>,
-    click_bytes: Vec<u8>,
-    bgm_bytes: Vec<u8>,
-    gacha_bytes: Vec<u8>,
-) {
+fn run_audio_thread(rx: mpsc::Receiver<AudioCommand>, app: AppHandle) {
     let Ok((_stream, handle)) = OutputStream::try_default() else {
         return;
     };
     let mut bgm_sink: Option<Sink> = None;
     let mut gacha_sink: Option<Sink> = None;
+    let mut click_bytes: Option<Vec<u8>> = None;
+    let mut bgm_bytes: Option<Vec<u8>> = None;
+    let mut gacha_bytes: Option<Vec<u8>> = None;
 
     while let Ok(command) = rx.recv() {
         match command {
             AudioCommand::PlayClick => {
-                play_audio_once(&handle, &click_bytes, 1.0);
+                let bytes = cached_asset_bytes(&app, &mut click_bytes, "sound/button_click.wav");
+                play_audio_once(&handle, bytes, 1.0);
             }
             AudioCommand::PlayBgm => {
                 if let Some(sink) = bgm_sink.take() {
                     sink.stop();
                 }
-                bgm_sink = play_audio_loop(&handle, &bgm_bytes, 0.3);
+                let bytes = cached_asset_bytes(&app, &mut bgm_bytes, "sound/bgm.mp3");
+                bgm_sink = play_audio_loop(&handle, bytes, 0.3);
             }
             AudioCommand::StopBgm => {
                 if let Some(sink) = bgm_sink.take() {
@@ -64,7 +62,8 @@ fn run_audio_thread(
                 if let Some(sink) = gacha_sink.take() {
                     sink.stop();
                 }
-                gacha_sink = play_audio_sink(&handle, &gacha_bytes, volume);
+                let bytes = cached_asset_bytes(&app, &mut gacha_bytes, "sound/gacha_loading.ogg");
+                gacha_sink = play_audio_sink(&handle, bytes, volume);
             }
             AudioCommand::StopGacha => {
                 if let Some(sink) = gacha_sink.take() {
@@ -73,6 +72,17 @@ fn run_audio_thread(
             }
         }
     }
+}
+
+fn cached_asset_bytes<'a>(
+    app: &AppHandle,
+    cache: &'a mut Option<Vec<u8>>,
+    relative_path: &str,
+) -> &'a [u8] {
+    if cache.is_none() {
+        *cache = Some(load_asset_bytes(app, relative_path));
+    }
+    cache.as_deref().unwrap_or(&[])
 }
 
 fn decoder_from_bytes(bytes: &[u8]) -> Option<Decoder<Cursor<Vec<u8>>>> {

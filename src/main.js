@@ -1,5 +1,4 @@
 import { createApp } from 'vue'
-import naive from 'naive-ui'
 import App from './App.vue'
 import router from './router'
 import { installTauriCompatApis } from './tauriApi'
@@ -39,4 +38,4 @@ if (!isElectron && window.location.hash === '') {
   router.push('/config');
 }
 
-createApp(App).use(router).use(naive).mount('#app')
+createApp(App).use(router).mount('#app')

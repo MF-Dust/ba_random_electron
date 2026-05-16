@@ -15,7 +15,7 @@
       </svg>
     </button>
     <transition name="ba-log-slide">
-      <div v-show="expanded" class="ba-log-body">
+      <div v-if="expanded" class="ba-log-body">
         <div class="ba-log-list" role="log" aria-live="polite">
           <div v-if="logs.length === 0" class="ba-log-empty">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4">
@@ -35,6 +35,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { NTag } from 'naive-ui'
 
 defineProps({
   logs: {

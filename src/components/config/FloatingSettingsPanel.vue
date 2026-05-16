@@ -70,6 +70,8 @@
 </template>
 
 <script setup>
+import { NInputNumber, NSlider, NSwitch } from 'naive-ui'
+
 defineProps({
   config: {
     type: Object,

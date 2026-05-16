@@ -5,14 +5,19 @@ export function useStudentListSync(appApi, config, addLog) {
   const rawListText = ref('')
   let textSyncTimer = null
   let textSyncRunId = 0
+  let lastSyncedText = ''
 
   const syncTextToList = async ({ updateText = false } = {}) => {
     if (textSyncTimer) {
       window.clearTimeout(textSyncTimer)
       textSyncTimer = null
     }
+    const rawText = rawListText.value
+    if (!updateText && rawText === lastSyncedText) {
+      return
+    }
     const runId = ++textSyncRunId
-    const result = await appApi.parseStudentListText(rawListText.value, config.value.studentList || [])
+    const result = await appApi.parseStudentListText(rawText, config.value.studentList || [])
     if (runId !== textSyncRunId) {
       return
     }
@@ -20,6 +25,9 @@ export function useStudentListSync(appApi, config, addLog) {
     config.value.studentList = result.studentList || []
     if (updateText) {
       rawListText.value = result.normalizedText || ''
+      lastSyncedText = rawListText.value
+    } else {
+      lastSyncedText = rawText
     }
   }
 
@@ -32,7 +40,7 @@ export function useStudentListSync(appApi, config, addLog) {
         console.error('同步名单失败:', error)
         addLog('error', '同步名单失败，请检查输入内容')
       })
-    }, 120)
+    }, 300)
   }
 
   const syncListToText = () => {
@@ -42,6 +50,7 @@ export function useStudentListSync(appApi, config, addLog) {
     }
     textSyncRunId += 1
     rawListText.value = studentListToText(config.value.studentList || [])
+    lastSyncedText = rawListText.value
   }
 
   const removeStudent = (index) => {
@@ -59,6 +68,7 @@ export function useStudentListSync(appApi, config, addLog) {
       if (!result) return
       config.value.studentList = result.studentList
       rawListText.value = result.normalizedText
+      lastSyncedText = rawListText.value
       addLog('info', `已导入 ${result.studentList.length} 名学生`)
     } catch (error) {
       console.error('导入名单失败:', error)

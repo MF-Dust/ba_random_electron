@@ -78,6 +78,7 @@
 </template>
 
 <script setup>
+import { NInputNumber, NSlider, NSwitch } from 'naive-ui'
 import { MAX_PICK_COUNT, MIN_PICK_COUNT } from '../../configDefaults'
 
 defineProps({

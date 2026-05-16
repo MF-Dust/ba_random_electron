@@ -42,10 +42,8 @@ export function usePickCountDialog() {
     }
   })
 
-  const initConfig = async () => {
-    isInitializing.value = true
-    const cfg = await pickCountApi.getConfig()
-
+  const applyConfig = (cfg) => {
+    if (!cfg) return
     count.value = clampInt(cfg.defaultCount, MIN_COUNT, MAX_COUNT, DEFAULT_PICK_COUNT)
     playMusic.value = Boolean(cfg.defaultPlayMusic)
     backgroundDarknessPercent.value = clampInt(
@@ -54,7 +52,15 @@ export function usePickCountDialog() {
       100,
       DEFAULT_BACKGROUND_DARKNESS_PERCENT
     )
-    isInitializing.value = false
+  }
+
+  const initConfig = async (configOverride) => {
+    isInitializing.value = true
+    try {
+      applyConfig(configOverride || await pickCountApi.getConfig())
+    } finally {
+      isInitializing.value = false
+    }
   }
 
   const playClickSound = () => {
@@ -97,10 +103,10 @@ export function usePickCountDialog() {
     await audioApi.playBgm()
   }
 
-  const resetDialogStateFromConfig = async (shouldPlayBgm) => {
+  const resetDialogStateFromConfig = async (shouldPlayBgm, configOverride) => {
     isLeaving.value = false
     stopAudio()
-    await initConfig()
+    await initConfig(configOverride)
 
     if (shouldPlayBgm && playMusic.value) {
       try {
@@ -160,9 +166,9 @@ export function usePickCountDialog() {
     stopAudio()
     await initConfig()
 
-    removeOnOpenListener = pickCountApi.onOpen(async () => {
+    removeOnOpenListener = pickCountApi.onOpen(async (payload) => {
       isDialogOpen.value = true
-      await resetDialogStateFromConfig(true)
+      await resetDialogStateFromConfig(true, payload?.config)
     })
 
     removeStopListener = pickCountApi.onStopBgm(() => {

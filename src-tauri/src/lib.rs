@@ -14,14 +14,11 @@ use std::sync::Mutex;
 
 use admin::{acquire_single_instance_guard, is_process_elevated, request_admin_relaunch};
 use audio::AudioController;
-use config::load_config;
+use config::load_config_with_signature;
 use state::{AppState, RuntimeState};
 use tauri::Manager;
 use tray::setup_tray;
-use windows::{
-    create_floating_window, create_pick_count_window, create_pick_result_window,
-    persist_floating_position,
-};
+use windows::{create_floating_window, persist_floating_position};
 
 pub fn run() {
     let single_instance_guard = match acquire_single_instance_guard() {
@@ -36,7 +33,8 @@ pub fn run() {
     tauri::Builder::default()
         .setup(move |app| {
             let app_handle = app.handle().clone();
-            let initial_config = load_config(&app_handle).unwrap_or_default();
+            let (initial_config, initial_config_signature) =
+                load_config_with_signature(&app_handle).unwrap_or_default();
             let mut single_instance_guard = Some(single_instance_guard);
 
             if initial_config.web_config.admin_topmost_enabled
@@ -65,15 +63,16 @@ pub fn run() {
                 .take()
                 .ok_or_else(|| anyhow::Error::msg("单实例锁未初始化"))?;
             app.manage(AppState {
-                inner: Mutex::new(RuntimeState::new(initial_config.clone())),
+                inner: Mutex::new(RuntimeState::new(
+                    initial_config.clone(),
+                    initial_config_signature,
+                )),
                 audio: AudioController::new(&app_handle),
                 _single_instance_guard: single_instance_guard,
             });
 
             setup_tray(&app_handle).map_err(anyhow::Error::msg)?;
             create_floating_window(&app_handle, &initial_config).map_err(anyhow::Error::msg)?;
-            create_pick_count_window(&app_handle).map_err(anyhow::Error::msg)?;
-            create_pick_result_window(&app_handle).map_err(anyhow::Error::msg)?;
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -93,6 +92,7 @@ pub fn run() {
             commands::floating_button_drag_move,
             commands::floating_button_drag_end,
             commands::floating_button_set_ignore_mouse,
+            commands::prewarm_aux_windows,
             commands::get_pick_count_config,
             commands::open_pick_count,
             commands::cancel_pick_count,

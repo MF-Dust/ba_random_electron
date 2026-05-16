@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use tauri::{AppHandle, Manager};
 
 use crate::utils::{clamp_f64, clamp_i32};
@@ -137,6 +138,12 @@ pub(crate) struct StudentListParseResult {
     pub(crate) normalized_text: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConfigFileSignature {
+    pub(crate) modified: Option<SystemTime>,
+    pub(crate) len: u64,
+}
+
 fn config_path() -> Result<PathBuf, String> {
     let current_dir =
         std::env::current_dir().map_err(|error| format!("获取当前目录失败: {error}"))?;
@@ -157,6 +164,18 @@ fn legacy_config_path(app: &AppHandle) -> Option<PathBuf> {
         .app_data_dir()
         .ok()
         .map(|dir| dir.join("config.yml"))
+}
+
+fn file_signature(path: &Path) -> Option<ConfigFileSignature> {
+    let metadata = fs::metadata(path).ok()?;
+    Some(ConfigFileSignature {
+        modified: metadata.modified().ok(),
+        len: metadata.len(),
+    })
+}
+
+pub(crate) fn current_config_signature() -> Result<Option<ConfigFileSignature>, String> {
+    Ok(file_signature(&config_path()?))
 }
 
 fn escape_yaml_string(value: &str) -> String {
@@ -634,4 +653,11 @@ pub(crate) fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
         fs::write(&path, normalized_raw).map_err(|error| format!("写入配置失败: {error}"))?;
     }
     Ok(normalized)
+}
+
+pub(crate) fn load_config_with_signature(
+    app: &AppHandle,
+) -> Result<(AppConfig, Option<ConfigFileSignature>), String> {
+    let config = load_config(app)?;
+    Ok((config, current_config_signature()?))
 }

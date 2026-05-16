@@ -44,7 +44,6 @@
                       :step="0.1"
                       :tooltip="false"
                       style="flex: 1; min-width: 80px;"
-                      @update:value="() => $emit('sync-list-to-text')"
                     />
                     <n-tag type="info" size="small" round :bordered="false" style="min-width: 36px; text-align: center;">
                       {{ Number(student.weight).toFixed(1) }}
@@ -74,6 +73,8 @@
 </template>
 
 <script setup>
+import { NButton, NSlider, NSwitch, NTag } from 'naive-ui'
+
 defineProps({
   config: {
     type: Object,
@@ -81,7 +82,7 @@ defineProps({
   }
 })
 
-defineEmits(['sync-list-to-text', 'remove-student', 'reset-weights'])
+defineEmits(['remove-student', 'reset-weights'])
 </script>
 
 <style scoped>

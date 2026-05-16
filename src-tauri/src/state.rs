@@ -6,7 +6,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::admin::SingleInstanceGuard;
 use crate::audio::AudioController;
-use crate::config::{load_config, AppConfig};
+use crate::config::{
+    current_config_signature, load_config_with_signature, AppConfig, ConfigFileSignature,
+};
 use crate::models::PickedStudent;
 use crate::picker::WeightedPool;
 
@@ -31,6 +33,7 @@ pub(crate) struct DragSession {
 
 pub(crate) struct RuntimeState {
     pub(crate) config: AppConfig,
+    pub(crate) config_signature: Option<ConfigFileSignature>,
     pub(crate) weighted_pool_cache: Option<WeightedPool>,
     pub(crate) current_pick_results: Vec<PickedStudent>,
     pub(crate) pick_result_token: u64,
@@ -42,9 +45,10 @@ pub(crate) struct RuntimeState {
 }
 
 impl RuntimeState {
-    pub(crate) fn new(config: AppConfig) -> Self {
+    pub(crate) fn new(config: AppConfig, config_signature: Option<ConfigFileSignature>) -> Self {
         Self {
             config,
+            config_signature,
             weighted_pool_cache: None,
             current_pick_results: Vec::new(),
             pick_result_token: 0,
@@ -56,8 +60,14 @@ impl RuntimeState {
         }
     }
 
-    pub(crate) fn apply_config(&mut self, config: AppConfig, reset_weighted_pool: bool) {
+    pub(crate) fn apply_config(
+        &mut self,
+        config: AppConfig,
+        config_signature: Option<ConfigFileSignature>,
+        reset_weighted_pool: bool,
+    ) {
         self.config = config;
+        self.config_signature = config_signature;
         if reset_weighted_pool {
             self.weighted_pool_cache = None;
         }
@@ -74,9 +84,16 @@ pub(crate) fn refresh_config(
     app: &AppHandle,
     state: &tauri::State<'_, AppState>,
 ) -> Result<AppConfig, String> {
-    let config = load_config(app)?;
+    let current_signature = current_config_signature()?;
+    if let Ok(guard) = state.inner.lock() {
+        if current_signature.is_some() && guard.config_signature == current_signature {
+            return Ok(guard.config.clone());
+        }
+    }
+
+    let (config, config_signature) = load_config_with_signature(app)?;
     let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-    guard.apply_config(config.clone(), true);
+    guard.apply_config(config.clone(), config_signature, true);
     Ok(config)
 }
 

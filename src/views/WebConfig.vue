@@ -57,7 +57,6 @@
             <div class="ba-tab-content" v-else-if="activeTab === 'students'" key="students">
               <StudentManagerPanel
                 :config="config"
-                @sync-list-to-text="syncListToText"
                 @remove-student="removeStudent"
                 @reset-weights="resetWeights"
               />
@@ -97,6 +96,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { NConfigProvider } from 'naive-ui'
 import ConfigTabs from '../components/config/ConfigTabs.vue'
 import FloatingSettingsPanel from '../components/config/FloatingSettingsPanel.vue'
 import PickSettingsPanel from '../components/config/PickSettingsPanel.vue'

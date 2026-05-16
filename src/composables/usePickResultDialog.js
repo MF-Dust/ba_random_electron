@@ -87,8 +87,15 @@ export function usePickResultDialog() {
     }
   }
 
+  const applySoundConfig = (cfg) => {
+    if (!cfg) return
+    playGachaSound.value = Boolean(cfg.defaultPlayGachaSound)
+    gachaSoundVolume.value = Number(cfg.gachaSoundVolume)
+  }
+
   const applyResults = (payload) => {
     resetResultState({ stopSound: false })
+    applySoundConfig(payload?.config)
     results.value = normalizeResults(payload)
     const token = Number(payload?.token)
     if (Number.isFinite(token)) {
@@ -152,10 +159,8 @@ export function usePickResultDialog() {
     }
   }
 
-  const loadSoundConfig = async () => {
-    const cfg = await pickResultApi.getConfig()
-    playGachaSound.value = Boolean(cfg?.defaultPlayGachaSound)
-    gachaSoundVolume.value = Number(cfg?.gachaSoundVolume)
+  const loadSoundConfig = async (configOverride) => {
+    applySoundConfig(configOverride || await pickResultApi.getConfig())
   }
 
   onMounted(async () => {
@@ -165,7 +170,7 @@ export function usePickResultDialog() {
     applyResults({ results: initial })
 
     removeOpenListener = pickResultApi.onOpen(async (payload) => {
-      await loadSoundConfig()
+      await loadSoundConfig(payload?.config)
       applyResults(payload)
     })
 

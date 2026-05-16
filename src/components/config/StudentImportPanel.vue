@@ -38,6 +38,8 @@
 </template>
 
 <script setup>
+import { NButton, NInput, NTag } from 'naive-ui'
+
 defineProps({
   rawListText: {
     type: String,

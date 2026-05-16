@@ -5,8 +5,8 @@ use tauri::{AppHandle, Manager, PhysicalPosition, Position, WebviewWindow};
 use crate::admin::{create_admin_startup_task_impl, is_process_elevated, request_admin_relaunch};
 use crate::audio::AudioCommand;
 use crate::config::{
-    normalize_config_value, parse_student_list_text_impl, save_config, AppConfig,
-    FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
+    current_config_signature, normalize_config_value, parse_student_list_text_impl, save_config,
+    AppConfig, FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
     StudentListParseResult, ADMIN_TASK_DEFAULT_NAME, MAX_PICK_COUNT, MIN_PICK_COUNT,
 };
 use crate::models::{ApiResult, AppInfo, PickedStudent, UpdateResult};
@@ -15,10 +15,10 @@ use crate::state::{push_log, refresh_config, AppState, DragSession, LogEntry};
 use crate::update::check_update_from_main;
 use crate::utils::clamp_i32;
 use crate::windows::{
-    apply_floating_window_config, create_floating_window, hide_floating_window,
-    hide_pick_count_window, open_pick_count_window, open_pick_result_window,
-    persist_floating_position, reset_and_hide_pick_result_window, show_floating_window,
-    stop_pick_count_bgm,
+    apply_floating_window_config, create_floating_window, create_pick_count_window,
+    create_pick_result_window, hide_floating_window, hide_pick_count_window,
+    open_pick_count_window, open_pick_result_window, persist_floating_position,
+    reset_and_hide_pick_result_window, show_floating_window, stop_pick_count_bgm,
 };
 #[tauri::command]
 pub(crate) fn get_floating_button_config(
@@ -114,6 +114,13 @@ pub(crate) fn floating_button_set_ignore_mouse(
 }
 
 #[tauri::command]
+pub(crate) fn prewarm_aux_windows(app: AppHandle) -> Result<(), String> {
+    create_pick_count_window(&app)?;
+    create_pick_result_window(&app)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) fn get_pick_count_config(
     app: AppHandle,
     state: tauri::State<'_, AppState>,
@@ -131,7 +138,7 @@ pub(crate) fn open_pick_count(
     if let Some(window) = app.get_webview_window("floating") {
         apply_floating_window_config(&window, &config);
     }
-    open_pick_count_window(&app)?;
+    open_pick_count_window(&app, &config.pick_count_dialog)?;
     state
         .inner
         .lock()
@@ -319,9 +326,10 @@ pub(crate) fn save_app_config(
 ) -> Result<ApiResult, String> {
     let normalized = normalize_config_value(config);
     save_config(&normalized)?;
+    let config_signature = current_config_signature().ok().flatten();
     {
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-        guard.apply_config(normalized.clone(), true);
+        guard.apply_config(normalized.clone(), config_signature, true);
     }
     if let Some(window) = app.get_webview_window("floating") {
         apply_floating_window_config(&window, &normalized);
@@ -402,8 +410,9 @@ pub(crate) fn create_admin_startup_task(
             task_name.trim().to_string()
         };
         save_config(&config)?;
+        let config_signature = current_config_signature().ok().flatten();
         let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-        guard.apply_config(config, true);
+        guard.apply_config(config, config_signature, true);
     }
     Ok(result)
 }

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::config::{PickCountDialogConfig, PickResultDialogConfig};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PickedStudent {
@@ -45,9 +47,16 @@ pub(crate) struct UpdateResult {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PickCountOpenPayload {
+    pub(crate) config: PickCountDialogConfig,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PickResultOpenPayload {
     pub(crate) token: u64,
     pub(crate) results: Vec<PickedStudent>,
+    pub(crate) config: PickResultDialogConfig,
 }
 
 #[derive(Debug, Clone, Serialize)]

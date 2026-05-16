@@ -113,6 +113,8 @@
 </template>
 
 <script setup>
+import { NButton, NInput, NSwitch } from 'naive-ui'
+
 defineProps({
   config: {
     type: Object,

@@ -1,15 +1,10 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
-import Floating from '../views/Floating.vue'
-import PickCount from '../views/PickCount.vue'
-import PickResult from '../views/PickResult.vue'
-import WebConfig from '../views/WebConfig.vue'
-
 const routes = [
-  { path: '/', component: Floating },
-  { path: '/pick-count', component: PickCount },
-  { path: '/pick-result', component: PickResult },
-  { path: '/config', component: WebConfig }
+  { path: '/', component: () => import('../views/Floating.vue') },
+  { path: '/pick-count', component: () => import('../views/PickCount.vue') },
+  { path: '/pick-result', component: () => import('../views/PickResult.vue') },
+  { path: '/config', component: () => import('../views/WebConfig.vue') }
 ]
 
 const router = createRouter({

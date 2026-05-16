@@ -3,8 +3,12 @@ use tauri::{
     WebviewWindow, WebviewWindowBuilder,
 };
 
-use crate::config::{load_config, save_config, AppConfig};
-use crate::models::{PickResultOpenPayload, PickResultResetPayload, PickedStudent};
+use crate::config::{
+    current_config_signature, load_config, save_config, AppConfig, PickCountDialogConfig,
+};
+use crate::models::{
+    PickCountOpenPayload, PickResultOpenPayload, PickResultResetPayload, PickedStudent,
+};
 use crate::state::AppState;
 
 const EVENT_FLOATING_CONFIG_UPDATED: &str = "floating-config-updated";
@@ -142,10 +146,18 @@ pub(crate) fn show_floating_window(app: &AppHandle) {
     show_and_focus_window(app, "floating");
 }
 
-pub(crate) fn open_pick_count_window(app: &AppHandle) -> Result<(), String> {
+pub(crate) fn open_pick_count_window(
+    app: &AppHandle,
+    config: &PickCountDialogConfig,
+) -> Result<(), String> {
     create_pick_count_window(app)?;
     if let Some(window) = app.get_webview_window("pick_count") {
-        let _ = window.emit(EVENT_PICK_COUNT_OPEN, ());
+        let _ = window.emit(
+            EVENT_PICK_COUNT_OPEN,
+            PickCountOpenPayload {
+                config: config.clone(),
+            },
+        );
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -202,7 +214,7 @@ pub(crate) fn persist_floating_position(app: &AppHandle, state: &tauri::State<'_
     config.floating_button.position.y = Some(position.y);
     let _ = save_config(&config);
     if let Ok(mut guard) = state.inner.lock() {
-        guard.apply_config(config, false);
+        guard.apply_config(config, current_config_signature().ok().flatten(), false);
     }
 }
 
@@ -212,9 +224,12 @@ pub(crate) fn open_pick_result_window(
     results: Vec<PickedStudent>,
 ) -> Result<(), String> {
     create_pick_result_window(app)?;
-    let token = {
+    let (token, config) = {
         let guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
-        guard.pick_result_token
+        (
+            guard.pick_result_token,
+            guard.config.pick_result_dialog.clone(),
+        )
     };
 
     if let Some(window) = app.get_webview_window("pick_result") {
@@ -227,7 +242,11 @@ pub(crate) fn open_pick_result_window(
         );
         let _ = window.emit(
             EVENT_PICK_RESULT_OPEN,
-            PickResultOpenPayload { token, results },
+            PickResultOpenPayload {
+                token,
+                results,
+                config,
+            },
         );
         let _ = window.show();
         let _ = window.set_focus();
