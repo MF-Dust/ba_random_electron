@@ -6,8 +6,9 @@ use crate::admin::{create_admin_startup_task_impl, is_process_elevated, request_
 use crate::audio::AudioCommand;
 use crate::config::{
     current_config_signature, normalize_config_value, parse_student_list_text_impl, save_config,
-    AppConfig, FloatingButtonConfig, PickCountDialogConfig, PickResultDialogConfig, Student,
-    StudentListParseResult, ADMIN_TASK_DEFAULT_NAME, MAX_PICK_COUNT, MIN_PICK_COUNT,
+    save_student_list, AppConfig, FloatingButtonConfig, PickCountDialogConfig,
+    PickResultDialogConfig, Student, StudentListParseResult, ADMIN_TASK_DEFAULT_NAME,
+    MAX_PICK_COUNT, MIN_PICK_COUNT,
 };
 use crate::models::{ApiResult, AppInfo, PickedStudent, UpdateResult};
 use crate::picker::{build_weighted_pool, pick_students_with_repeat, pick_students_without_repeat};
@@ -219,6 +220,7 @@ pub(crate) async fn confirm_pick_count(
                 pick_students_with_repeat(
                     guard.weighted_pool_cache.as_ref().unwrap(),
                     selected_count,
+                    &guard.config.student_list,
                 )
             } else {
                 pick_students_without_repeat(&guard.config, selected_count)
@@ -409,6 +411,7 @@ pub(crate) async fn save_app_config(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let normalized = normalize_config_value(config);
+        save_student_list(&normalized.student_list)?;
         save_config(&normalized)?;
         let config_signature = current_config_signature().ok().flatten();
         {
@@ -552,6 +555,38 @@ pub(crate) async fn renderer_log(
         }
         push_log(&app, &state, level, &text);
         Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub(crate) async fn save_student_list_file(
+    app: AppHandle,
+    students: Vec<Student>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        crate::config::save_student_list(&students)?;
+        let mut guard = state
+            .inner
+            .lock()
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
+        guard.config.student_list = students;
+        guard.weighted_pool_cache = None;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub(crate) async fn pick_student_avatar() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = rfd::FileDialog::new()
+            .add_filter("图片文件", &["png", "jpg", "jpeg", "webp", "gif"])
+            .pick_file();
+        Ok(path.map(|p| p.to_string_lossy().to_string()))
     })
     .await
     .map_err(|e| e.to_string())?

@@ -1,0 +1,22 @@
+# 学生名单～
+# 支持的字段: name(姓名), weight(权重), avatar(立绘路径), academy(学院), club(社团)
+
+students:
+  - name: "白子"
+    weight: 1
+  - name: "星野"
+    weight: 1
+  - name: "芹香"
+    weight: 1
+  - name: "优香"
+    weight: 1
+  - name: "日富美"
+    weight: 1
+  - name: "日奈"
+    weight: 1
+  - name: "睦月"
+    weight: 1
+  - name: "佳代子"
+    weight: 1
+  - name: "梓"
+    weight: 1

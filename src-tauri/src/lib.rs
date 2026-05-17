@@ -114,7 +114,9 @@ pub fn run() {
             commands::request_admin_elevation,
             commands::create_admin_startup_task,
             commands::renderer_log,
-            commands::get_logs
+            commands::get_logs,
+            commands::save_student_list_file,
+            commands::pick_student_avatar
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

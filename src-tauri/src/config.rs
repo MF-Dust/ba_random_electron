@@ -16,6 +16,12 @@ pub(crate) const MAX_PICK_COUNT: i32 = 10;
 pub(crate) struct Student {
     pub(crate) name: String,
     pub(crate) weight: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) avatar: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) academy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) club: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,7 +150,7 @@ pub(crate) struct ConfigFileSignature {
     pub(crate) len: u64,
 }
 
-fn config_path() -> Result<PathBuf, String> {
+fn base_dir() -> Result<PathBuf, String> {
     let current_dir =
         std::env::current_dir().map_err(|error| format!("获取当前目录失败啦: {error}"))?;
     if current_dir
@@ -153,10 +159,116 @@ fn config_path() -> Result<PathBuf, String> {
         .is_some_and(|name| name == "src-tauri")
     {
         if let Some(project_dir) = current_dir.parent() {
-            return Ok(project_dir.join("config.yml"));
+            return Ok(project_dir.to_path_buf());
         }
     }
-    Ok(current_dir.join("config.yml"))
+    Ok(current_dir)
+}
+
+fn config_path() -> Result<PathBuf, String> {
+    Ok(base_dir()?.join("config.yml"))
+}
+
+pub(crate) fn list_path() -> Result<PathBuf, String> {
+    Ok(base_dir()?.join("list.yaml"))
+}
+
+fn to_list_yaml_with_comments(students: &[Student]) -> String {
+    let mut lines = vec![
+        "# 学生名单～".to_string(),
+        "# 支持的字段: name(姓名), weight(权重), avatar(立绘路径), academy(学院), club(社团)".to_string(),
+        String::new(),
+    ];
+    if students.is_empty() {
+        lines.push("students: []".to_string());
+    } else {
+        lines.push("students:".to_string());
+        for student in students {
+            lines.push(format!("  - name: \"{}\"", escape_yaml_string(&student.name)));
+            lines.push(format!("    weight: {}", student.weight));
+            if let Some(avatar) = &student.avatar {
+                lines.push(format!("    avatar: \"{}\"", escape_yaml_string(avatar)));
+            }
+            if let Some(academy) = &student.academy {
+                lines.push(format!("    academy: \"{}\"", escape_yaml_string(academy)));
+            }
+            if let Some(club) = &student.club {
+                lines.push(format!("    club: \"{}\"", escape_yaml_string(club)));
+            }
+        }
+    }
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+pub(crate) fn load_student_list() -> Result<Vec<Student>, String> {
+    let path = list_path()?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw = fs::read_to_string(&path).map_err(|e| format!("读取名单失败啦: {e}"))?;
+    let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
+    let mut students = Vec::new();
+    if let Some(Value::Array(items)) = get_field(&parsed, "students") {
+        for item in items {
+            if let Value::Object(_) = item {
+                let name = value_as_string(get_field(item, "name"), "").trim().to_string();
+                if !name.is_empty() {
+                    let avatar = match get_field(item, "avatar") {
+                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        _ => None,
+                    };
+                    let academy = match get_field(item, "academy") {
+                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        _ => None,
+                    };
+                    let club = match get_field(item, "club") {
+                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        _ => None,
+                    };
+                    students.push(Student {
+                        name,
+                        weight: value_as_f64(get_field(item, "weight"), 1.0),
+                        avatar,
+                        academy,
+                        club,
+                    });
+                }
+            }
+        }
+    }
+    Ok(students)
+}
+
+pub(crate) fn save_student_list(students: &[Student]) -> Result<(), String> {
+    let path = list_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("创建目录失败啦: {e}"))?;
+    }
+    fs::write(path, to_list_yaml_with_comments(students))
+        .map_err(|e| format!("写入名单失败啦: {e}"))
+}
+
+pub(crate) fn migrate_student_list_if_needed(_app: &AppHandle) -> Result<(), String> {
+    let list_file = list_path()?;
+    if list_file.exists() {
+        return Ok(());
+    }
+    let cfg_path = config_path()?;
+    if !cfg_path.exists() {
+        return Ok(());
+    }
+    let raw = fs::read_to_string(&cfg_path).map_err(|e| format!("读取配置失败啦: {e}"))?;
+    let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
+    let config = normalize_config_value(parsed);
+    if config.student_list.is_empty() {
+        return Ok(());
+    }
+    save_student_list(&config.student_list)?;
+    let mut cleared = config;
+    cleared.student_list = Vec::new();
+    save_config(&cleared)?;
+    Ok(())
 }
 
 fn legacy_config_path(app: &AppHandle) -> Option<PathBuf> {
@@ -346,6 +458,9 @@ pub(crate) fn normalize_config_value(value: Value) -> AppConfig {
                         student_list.push(Student {
                             name: trimmed.to_string(),
                             weight: 1.0,
+                            avatar: None,
+                            academy: None,
+                            club: None,
                         });
                     }
                 }
@@ -354,9 +469,30 @@ pub(crate) fn normalize_config_value(value: Value) -> AppConfig {
                         .trim()
                         .to_string();
                     if !name.is_empty() {
+                        let avatar = match get_field(item, "avatar") {
+                            Some(Value::String(s)) if !s.trim().is_empty() => {
+                                Some(s.trim().to_string())
+                            }
+                            _ => None,
+                        };
+                        let academy = match get_field(item, "academy") {
+                            Some(Value::String(s)) if !s.trim().is_empty() => {
+                                Some(s.trim().to_string())
+                            }
+                            _ => None,
+                        };
+                        let club = match get_field(item, "club") {
+                            Some(Value::String(s)) if !s.trim().is_empty() => {
+                                Some(s.trim().to_string())
+                            }
+                            _ => None,
+                        };
                         student_list.push(Student {
                             name,
                             weight: value_as_f64(get_field(item, "weight"), 1.0),
+                            avatar,
+                            academy,
+                            club,
                         });
                     }
                 }
@@ -482,16 +618,11 @@ pub(crate) fn parse_student_list_text_impl(
     raw_text: &str,
     existing_students: &[Student],
 ) -> StudentListParseResult {
-    let mut existing_weights = HashMap::with_capacity(existing_students.len());
+    let mut existing_map = HashMap::with_capacity(existing_students.len());
     for student in existing_students {
         let name = student.name.trim();
         if !name.is_empty() {
-            let weight = if student.weight.is_finite() {
-                student.weight
-            } else {
-                1.0
-            };
-            existing_weights.insert(name.to_string(), weight);
+            existing_map.insert(name.to_string(), student.clone());
         }
     }
 
@@ -504,10 +635,28 @@ pub(crate) fn parse_student_list_text_impl(
         .filter(|name| !name.is_empty())
     {
         if seen.insert(name.to_string()) {
-            student_list.push(Student {
-                name: name.to_string(),
-                weight: existing_weights.get(name).copied().unwrap_or(1.0),
-            });
+            if let Some(existing) = existing_map.get(name) {
+                let weight = if existing.weight.is_finite() {
+                    existing.weight
+                } else {
+                    1.0
+                };
+                student_list.push(Student {
+                    name: name.to_string(),
+                    weight,
+                    avatar: existing.avatar.clone(),
+                    academy: existing.academy.clone(),
+                    club: existing.club.clone(),
+                });
+            } else {
+                student_list.push(Student {
+                    name: name.to_string(),
+                    weight: 1.0,
+                    avatar: None,
+                    academy: None,
+                    club: None,
+                });
+            }
         }
     }
 
@@ -594,10 +743,16 @@ mod tests {
             Student {
                 name: "Alice".to_string(),
                 weight: 1.7,
+                avatar: Some("/img/alice.png".to_string()),
+                academy: Some("Abydos".to_string()),
+                club: None,
             },
             Student {
                 name: "Bob".to_string(),
                 weight: 0.4,
+                avatar: None,
+                academy: None,
+                club: None,
             },
         ];
 
@@ -646,9 +801,14 @@ fn write_default_config_if_missing(app: &AppHandle, path: &Path) -> Result<(), S
 pub(crate) fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
     let path = config_path()?;
     write_default_config_if_missing(app, &path)?;
+    migrate_student_list_if_needed(app)?;
     let raw = fs::read_to_string(&path).map_err(|error| format!("读取配置失败啦: {error}"))?;
     let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
-    let normalized = normalize_config_value(parsed);
+    let mut normalized = normalize_config_value(parsed);
+    let list_students = load_student_list()?;
+    if !list_students.is_empty() {
+        normalized.student_list = list_students;
+    }
     let normalized_raw = to_config_yaml_with_comments(&normalized);
     if raw != normalized_raw {
         fs::write(&path, normalized_raw).map_err(|error| format!("写入配置失败啦: {error}"))?;

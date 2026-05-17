@@ -12,7 +12,6 @@
       title="点名点名～"
     >
       <img src="/image/random.svg" alt="阿罗娜的点名按钮" draggable="false" />
-      <span class="floating-button-label" :style="textStyle">点名！</span>
     </button>
   </div>
 </template>
@@ -46,11 +45,6 @@ const buttonStyle = computed(() => {
   }
 })
 
-const textStyle = computed(() => {
-  return {
-    opacity: String(styleOpacity.value)
-  }
-})
 
 const {
   isDragging,
@@ -107,15 +101,4 @@ const {
   pointer-events: none;
 }
 
-.floating-button-label {
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  transform: translateX(-50%);
-  font-size: 12px;
-  line-height: 1;
-  color: rgb(255, 255, 255);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
-  pointer-events: none;
-}
 </style>

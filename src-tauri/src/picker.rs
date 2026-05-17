@@ -23,6 +23,16 @@ fn valid_student_entries(students: &[Student]) -> impl Iterator<Item = (String, 
     })
 }
 
+fn enrich_picked_student(name: &str, students: &[Student]) -> PickedStudent {
+    let student = students.iter().find(|s| s.name.trim() == name);
+    PickedStudent {
+        name: name.to_string(),
+        avatar: student.and_then(|s| s.avatar.clone()),
+        academy: student.and_then(|s| s.academy.clone()),
+        club: student.and_then(|s| s.club.clone()),
+    }
+}
+
 pub(crate) fn build_weighted_pool(config: &AppConfig) -> WeightedPool {
     let entries = valid_student_entries(&config.student_list)
         .map(|(name, weight)| (name, weight.powf(WEIGHT_BOOST_GAMMA)))
@@ -37,6 +47,7 @@ pub(crate) fn build_weighted_pool(config: &AppConfig) -> WeightedPool {
 pub(crate) fn pick_students_with_repeat(
     weighted_pool: &WeightedPool,
     count: i32,
+    students: &[Student],
 ) -> Vec<PickedStudent> {
     if weighted_pool.entries.is_empty() || count <= 0 {
         return Vec::new();
@@ -59,9 +70,8 @@ pub(crate) fn pick_students_with_repeat(
             }
         }
         let index = pick_index.unwrap_or_else(|| rng.gen_range(0..weighted_pool.entries.len()));
-        picked.push(PickedStudent {
-            name: weighted_pool.entries[index].0.clone(),
-        });
+        let name = weighted_pool.entries[index].0.clone();
+        picked.push(enrich_picked_student(&name, students));
     }
 
     picked
@@ -89,7 +99,7 @@ pub(crate) fn pick_students_without_repeat(config: &AppConfig, count: i32) -> Ve
     positive_pool.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
     for (name, _) in positive_pool.into_iter().take(target_count) {
-        picked.push(PickedStudent { name });
+        picked.push(enrich_picked_student(&name, &config.student_list));
     }
 
     if picked.len() < target_count {
@@ -100,7 +110,7 @@ pub(crate) fn pick_students_without_repeat(config: &AppConfig, count: i32) -> Ve
             .collect::<Vec<_>>();
         zero_pool.shuffle(&mut rng);
         for name in zero_pool.into_iter().take(target_count - picked.len()) {
-            picked.push(PickedStudent { name });
+            picked.push(enrich_picked_student(&name, &config.student_list));
         }
     }
 
