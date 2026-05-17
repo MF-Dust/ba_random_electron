@@ -5,9 +5,9 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
         </svg>
-        <span class="ba-log-title">运行记录</span>
+        <span class="ba-log-title">运行日志～</span>
         <n-tag v-if="isDebugMode" type="info" size="small" round>Dev</n-tag>
-        <n-tag v-if="isAdmin" type="warning" size="small" round>管理员</n-tag>
+        <n-tag v-if="isAdmin" type="warning" size="small" round>管理员模式</n-tag>
         <n-tag size="small" round :bordered="false">v{{ appVersion }}</n-tag>
       </div>
       <svg class="ba-log-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -21,7 +21,7 @@
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <span>暂时还没有新的记录哦</span>
+            <span>还没有新日志呢～</span>
           </div>
           <div v-for="item in logs" :key="item.id" class="ba-log-item" :class="`ba-log-${item.level}`">
             <span class="ba-log-time">{{ item.time }}</span>

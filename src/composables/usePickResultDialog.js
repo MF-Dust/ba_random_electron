@@ -14,7 +14,7 @@ export function usePickResultDialog() {
   const playGachaSound = ref(true)
   const gachaSoundVolume = ref(0.6)
   const resultMode = ref('quick')
-  const instructionText = computed(() => resultMode.value === 'full' ? '点击任意位置返回快速模式' : '点击任意位置关闭')
+  const instructionText = computed(() => resultMode.value === 'full' ? '点一下回到快速模式～' : '点一下就关掉哦～')
 
   let revealTimer = null
   let closeTimer = null

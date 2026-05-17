@@ -58,7 +58,7 @@ const {
       </div>
     </div>
     <p v-if="results.length" class="result-hint">{{ instructionText }}</p>
-    <p v-else class="result-empty">暂无抽取结果</p>
+    <p v-else class="result-empty">还没有点名结果呢～</p>
   </div>
 </template>
 

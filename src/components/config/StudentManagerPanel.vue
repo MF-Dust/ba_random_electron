@@ -8,18 +8,18 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        <span>名单一览</span>
+        <span>名单一览～</span>
       </div>
       <p class="ba-card-desc">老师可以在这里查看所有人和他们的抽取权重哦～默认权重是 1.0，数值越高就越容易被抽到，很简单对吧！</p>
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.allowRepeatDraw" />
-        <span class="ba-toggle-label">允许重复抽取（同一人可以被抽到多次）</span>
+        <span class="ba-toggle-label">允许重复点名～同一个人可能被点到好几次哦！</span>
       </div>
     </div>
 
     <div class="ba-card">
       <div v-if="config.studentList.length === 0" class="ba-empty-state">
-        <img src="/image/Arona_Empty.webp" alt="Arona Empty" class="ba-empty-img" />
+        <img src="/image/Arona_Empty.webp" alt="阿罗娜空空" class="ba-empty-img" />
         <p>这里还没有名单呢～老师先去「导入名单」填写一下吧</p>
       </div>
       <template v-else>
@@ -27,9 +27,9 @@
           <table class="ba-student-table">
             <thead>
               <tr>
-                <th class="col-name">姓名</th>
+                <th class="col-name">名字</th>
                 <th class="col-weight">权重（0.0 - 2.0）</th>
-                <th class="col-action">移除</th>
+                <th class="col-action">删除</th>
               </tr>
             </thead>
             <tbody>
@@ -51,7 +51,7 @@
                   </div>
                 </td>
                 <td class="col-action">
-                  <button type="button" class="ba-del-btn" @click="$emit('remove-student', index)" title="移除">
+                  <button type="button" class="ba-del-btn" @click="$emit('remove-student', index)" title="删掉～">
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18"/>
                       <line x1="6" y1="6" x2="18" y2="18"/>
@@ -64,7 +64,7 @@
         </div>
         <div class="ba-student-actions">
           <n-button secondary type="warning" @click="$emit('reset-weights')">
-            一键重置所有权重为 1.0
+            一键重置所有权重为 1.0！
           </n-button>
         </div>
       </template>

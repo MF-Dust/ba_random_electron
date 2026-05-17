@@ -9,10 +9,10 @@
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
       @pointercancel="handlePointerCancel"
-      title="抽取"
+      title="点名点名～"
     >
-      <img src="/image/random.svg" alt="随机抽取" draggable="false" />
-      <span class="floating-button-label" :style="textStyle">抽取</span>
+      <img src="/image/random.svg" alt="阿罗娜的点名按钮" draggable="false" />
+      <span class="floating-button-label" :style="textStyle">点名！</span>
     </button>
   </div>
 </template>

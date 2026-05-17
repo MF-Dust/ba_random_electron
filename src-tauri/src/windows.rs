@@ -55,7 +55,7 @@ pub(crate) fn create_floating_window(
 
     let (width, height) = floating_window_size(config);
     let mut builder = WebviewWindowBuilder::new(app, "floating", route_url(""))
-        .title("KVRandom")
+        .title("KVRandom - 阿罗娜在这里～")
         .inner_size(width as f64, height as f64)
         .decorations(false)
         .resizable(false)
@@ -75,7 +75,7 @@ pub(crate) fn create_floating_window(
 
     builder
         .build()
-        .map_err(|error| format!("创建悬浮窗失败: {error}"))
+        .map_err(|error| format!("创建悬浮窗失败啦: {error}"))
 }
 
 pub(crate) fn create_pick_count_window(app: &AppHandle) -> Result<WebviewWindow, String> {
@@ -84,7 +84,7 @@ pub(crate) fn create_pick_count_window(app: &AppHandle) -> Result<WebviewWindow,
     }
 
     WebviewWindowBuilder::new(app, "pick_count", route_url("/pick-count"))
-        .title("选择人数")
+        .title("要点名几个人呢～")
         .decorations(false)
         .resizable(false)
         .maximizable(false)
@@ -95,7 +95,7 @@ pub(crate) fn create_pick_count_window(app: &AppHandle) -> Result<WebviewWindow,
         .skip_taskbar(!cfg!(debug_assertions))
         .always_on_top(true)
         .build()
-        .map_err(|error| format!("创建人数选择窗口失败: {error}"))
+        .map_err(|error| format!("创建选择窗口失败啦: {error}"))
 }
 
 pub(crate) fn create_pick_result_window(app: &AppHandle) -> Result<WebviewWindow, String> {
@@ -104,7 +104,7 @@ pub(crate) fn create_pick_result_window(app: &AppHandle) -> Result<WebviewWindow
     }
 
     WebviewWindowBuilder::new(app, "pick_result", route_url("/pick-result"))
-        .title("抽取结果")
+        .title("点名结果～")
         .decorations(false)
         .resizable(false)
         .maximizable(false)
@@ -115,7 +115,7 @@ pub(crate) fn create_pick_result_window(app: &AppHandle) -> Result<WebviewWindow
         .skip_taskbar(!cfg!(debug_assertions))
         .always_on_top(true)
         .build()
-        .map_err(|error| format!("创建结果窗口失败: {error}"))
+        .map_err(|error| format!("创建结果窗口失败啦: {error}"))
 }
 
 pub(crate) fn open_config_window(app: &AppHandle) -> Result<(), String> {
@@ -126,14 +126,14 @@ pub(crate) fn open_config_window(app: &AppHandle) -> Result<(), String> {
     }
 
     WebviewWindowBuilder::new(app, "config", route_url("/config"))
-        .title("KVRandom 配置")
+        .title("KVRandom 设置面板～")
         .inner_size(1120.0, 760.0)
         .resizable(true)
         .build()
         .map(|window| {
             let _ = window.set_focus();
         })
-        .map_err(|error| format!("创建配置窗口失败: {error}"))
+        .map_err(|error| format!("创建设置窗口失败啦: {error}"))
 }
 
 pub(crate) fn hide_floating_window(app: &AppHandle) {
@@ -225,7 +225,10 @@ pub(crate) fn open_pick_result_window(
 ) -> Result<(), String> {
     create_pick_result_window(app)?;
     let (token, config) = {
-        let guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+        let guard = state
+            .inner
+            .lock()
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
         (
             guard.pick_result_token,
             guard.config.pick_result_dialog.clone(),

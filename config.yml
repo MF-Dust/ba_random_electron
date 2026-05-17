@@ -1,4 +1,4 @@
-# 抽取名单列表
+# 学生名单列表～
 studentList:
   - name: "白子"
     weight: 1
@@ -20,44 +20,44 @@ studentList:
     weight: 1
 allowRepeatDraw: true
 
-# 悬浮按钮配置
+# 悬浮按钮配置～
 floatingButton:
-  # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100
+  # 按钮大小百分比（基准50px×50px），范围0-1000，默认100～
   sizePercent: 100
-  # 透明度百分比，范围 0-100（0=完全不透明，100=完全透明），默认 20
+  # 透明度百分比，范围0-100（0=完全不透明，100=完全透明），默认20～
   transparencyPercent: 20
-  # 是否置顶（true/false），默认 true
+  # 是否置顶（true/false），默认true～
   alwaysOnTop: true
-  # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置
+  # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null表示使用默认位置～
   position:
     x: 1181
     y: 761
 
-# 人数选择窗口配置
+# 人数选择窗口配置～
 pickCountDialog:
-  # 是否默认播放喜庆点名音乐（true/false），默认 false
+  # 是否默认播放点名BGM（随机：超喜庆BGM / OST 338，true/false），默认false～
   defaultPlayMusic: true
-  # 背景变暗程度，范围 0-100（100 接近全黑），默认 50
+  # 背景变暗程度，范围0-100（100接近全黑），默认50～
   backgroundDarknessPercent: 50
-  # 人数默认值，范围 1-10 的整数，默认 1
+  # 每次默认点名人数，范围1-10的整数，默认1～
   defaultCount: 1
 
-# 抽奖结果动画音效配置
+# 点名结果动画音效配置～
 pickResultDialog:
-  # 是否默认播放抽奖音效（true/false），默认 true
+  # 是否默认播放点名音效（true/false），默认true～
   defaultPlayGachaSound: true
-  # 抽奖音效音量（0.0-1.0），默认 0.6
+  # 点名音效音量（0.0-1.0），默认0.6～
   gachaSoundVolume: 1
 
-# 应用配置
+# 应用配置～
 webConfig:
-  # 兼容旧版本字段；Tauri 版不再启动本地 Web 配置服务
+  # 兼容旧版本字段；Tauri版不再启动本地Web配置服务～
   port: 21219
-  # 启用管理员置顶增强（Windows 下会尝试管理员权限）
+  # 启用管理员置顶增强（Windows下会尝试管理员权限）～
   adminTopmostEnabled: true
-  # 是否创建开机计划任务（管理员权限运行）
+  # 是否创建开机计划任务（管理员权限运行）～
   adminAutoStartEnabled: false
-  # 计划任务运行的可执行文件路径
+  # 开机任务运行的可执行文件路径～
   adminAutoStartPath: "C:\\Users\\SakuraStar\\.cargo-target\\ba_random_electron\\release\\blue-random.exe"
-  # 计划任务名称
+  # 开机任务名称～
   adminAutoStartTaskName: "Blue Random (Admin)"

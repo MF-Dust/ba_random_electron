@@ -146,7 +146,7 @@ pub(crate) struct ConfigFileSignature {
 
 fn config_path() -> Result<PathBuf, String> {
     let current_dir =
-        std::env::current_dir().map_err(|error| format!("获取当前目录失败: {error}"))?;
+        std::env::current_dir().map_err(|error| format!("获取当前目录失败啦: {error}"))?;
     if current_dir
         .file_name()
         .and_then(|name| name.to_str())
@@ -216,60 +216,60 @@ fn to_config_yaml_with_comments(config: &AppConfig) -> String {
     };
 
     [
-        "# 抽取名单列表".to_string(),
+        "# 学生名单列表～".to_string(),
         format!("studentList:{student_lines}"),
         format!("allowRepeatDraw: {}", config.allow_repeat_draw),
         String::new(),
-        "# 悬浮按钮配置".to_string(),
+        "# 悬浮按钮配置～".to_string(),
         "floatingButton:".to_string(),
-        "  # 按钮大小百分比（基准 50px*50px），范围 0-1000，默认 100".to_string(),
+        "  # 按钮大小百分比（基准50px×50px），范围0-1000，默认100～".to_string(),
         format!("  sizePercent: {}", fb.size_percent),
-        "  # 透明度百分比，范围 0-100（0=完全不透明，100=完全透明），默认 20".to_string(),
+        "  # 透明度百分比，范围0-100（0=完全不透明，100=完全透明），默认20～".to_string(),
         format!("  transparencyPercent: {}", fb.transparency_percent),
-        "  # 是否置顶（true/false），默认 true".to_string(),
+        "  # 是否置顶（true/false），默认true～".to_string(),
         format!("  alwaysOnTop: {}", fb.always_on_top),
-        "  # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null 表示使用系统默认位置"
+        "  # 悬浮按钮窗口位置（左上角屏幕坐标），退出时自动保存；null表示使用默认位置～"
             .to_string(),
         "  position:".to_string(),
         format!("    x: {pos_x}"),
         format!("    y: {pos_y}"),
         String::new(),
-        "# 人数选择窗口配置".to_string(),
+        "# 人数选择窗口配置～".to_string(),
         "pickCountDialog:".to_string(),
-        "  # 是否默认播放喜庆点名音乐（true/false），默认 false".to_string(),
+        "  # 是否默认播放点名BGM（true/false），默认false～".to_string(),
         format!("  defaultPlayMusic: {}", pick.default_play_music),
-        "  # 背景变暗程度，范围 0-100（100 接近全黑），默认 50".to_string(),
+        "  # 背景变暗程度，范围0-100（100接近全黑），默认50～".to_string(),
         format!(
             "  backgroundDarknessPercent: {}",
             pick.background_darkness_percent
         ),
-        "  # 人数默认值，范围 1-10 的整数，默认 1".to_string(),
+        "  # 每次默认点名人数，范围1-10的整数，默认1～".to_string(),
         format!("  defaultCount: {}", pick.default_count),
         String::new(),
-        "# 抽奖结果动画音效配置".to_string(),
+        "# 点名结果动画音效配置～".to_string(),
         "pickResultDialog:".to_string(),
-        "  # 是否默认播放抽奖音效（true/false），默认 true".to_string(),
+        "  # 是否默认播放点名音效（true/false），默认true～".to_string(),
         format!(
             "  defaultPlayGachaSound: {}",
             pick_result.default_play_gacha_sound
         ),
-        "  # 抽奖音效音量（0.0-1.0），默认 0.6".to_string(),
+        "  # 点名音效音量（0.0-1.0），默认0.6～".to_string(),
         format!("  gachaSoundVolume: {}", pick_result.gacha_sound_volume),
         String::new(),
-        "# 应用配置".to_string(),
+        "# 应用配置～".to_string(),
         "webConfig:".to_string(),
-        "  # 兼容旧版本字段；Tauri 版不再启动本地 Web 配置服务".to_string(),
+        "  # 兼容旧版本字段；Tauri版不再启动本地Web配置服务～".to_string(),
         format!("  port: {}", web.port),
-        "  # 启用管理员置顶增强（Windows 下会尝试管理员权限）".to_string(),
+        "  # 启用管理员置顶增强（Windows下会尝试管理员权限）～".to_string(),
         format!("  adminTopmostEnabled: {}", web.admin_topmost_enabled),
-        "  # 是否创建开机计划任务（管理员权限运行）".to_string(),
+        "  # 是否创建开机计划任务（管理员权限运行）～".to_string(),
         format!("  adminAutoStartEnabled: {}", web.admin_auto_start_enabled),
-        "  # 计划任务运行的可执行文件路径".to_string(),
+        "  # 开机任务运行的可执行文件路径～".to_string(),
         format!(
             "  adminAutoStartPath: \"{}\"",
             escape_yaml_string(&web.admin_auto_start_path)
         ),
-        "  # 计划任务名称".to_string(),
+        "  # 开机任务名称～".to_string(),
         format!(
             "  adminAutoStartTaskName: \"{}\"",
             escape_yaml_string(&web.admin_auto_start_task_name)
@@ -618,10 +618,10 @@ mod tests {
 pub(crate) fn save_config(config: &AppConfig) -> Result<(), String> {
     let path = config_path()?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| format!("创建配置目录失败: {error}"))?;
+        fs::create_dir_all(parent).map_err(|error| format!("创建配置目录失败啦: {error}"))?;
     }
     fs::write(path, to_config_yaml_with_comments(config))
-        .map_err(|error| format!("写入配置失败: {error}"))
+        .map_err(|error| format!("写入配置失败啦: {error}"))
 }
 
 fn write_default_config_if_missing(app: &AppHandle, path: &Path) -> Result<(), String> {
@@ -632,9 +632,10 @@ fn write_default_config_if_missing(app: &AppHandle, path: &Path) -> Result<(), S
     if let Some(legacy_path) = legacy_config_path(app) {
         if legacy_path != path && legacy_path.exists() {
             if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).map_err(|error| format!("创建配置目录失败: {error}"))?;
+                fs::create_dir_all(parent)
+                    .map_err(|error| format!("创建配置目录失败啦: {error}"))?;
             }
-            fs::copy(legacy_path, path).map_err(|error| format!("迁移旧配置失败: {error}"))?;
+            fs::copy(legacy_path, path).map_err(|error| format!("迁移旧配置失败啦: {error}"))?;
             return Ok(());
         }
     }
@@ -645,12 +646,12 @@ fn write_default_config_if_missing(app: &AppHandle, path: &Path) -> Result<(), S
 pub(crate) fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
     let path = config_path()?;
     write_default_config_if_missing(app, &path)?;
-    let raw = fs::read_to_string(&path).map_err(|error| format!("读取配置失败: {error}"))?;
+    let raw = fs::read_to_string(&path).map_err(|error| format!("读取配置失败啦: {error}"))?;
     let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
     let normalized = normalize_config_value(parsed);
     let normalized_raw = to_config_yaml_with_comments(&normalized);
     if raw != normalized_raw {
-        fs::write(&path, normalized_raw).map_err(|error| format!("写入配置失败: {error}"))?;
+        fs::write(&path, normalized_raw).map_err(|error| format!("写入配置失败啦: {error}"))?;
     }
     Ok(normalized)
 }

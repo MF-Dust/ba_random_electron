@@ -92,7 +92,10 @@ pub(crate) fn refresh_config(
     }
 
     let (config, config_signature) = load_config_with_signature(app)?;
-    let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+    let mut guard = state
+        .inner
+        .lock()
+        .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
     guard.apply_config(config.clone(), config_signature, true);
     Ok(config)
 }

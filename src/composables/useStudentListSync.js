@@ -38,7 +38,7 @@ export function useStudentListSync(appApi, config, addLog) {
     textSyncTimer = window.setTimeout(() => {
       syncTextToList().catch((error) => {
         console.error('同步名单失败:', error)
-        addLog('error', '同步名单失败，请检查输入内容')
+        addLog('error', '同步名单失败...老师检查一下输入内容～')
       })
     }, 300)
   }
@@ -69,10 +69,10 @@ export function useStudentListSync(appApi, config, addLog) {
       config.value.studentList = result.studentList
       rawListText.value = result.normalizedText
       lastSyncedText = rawListText.value
-      addLog('info', `已导入 ${result.studentList.length} 名学生`)
+      addLog('info', `已经导入 ${result.studentList.length} 名学生啦～`)
     } catch (error) {
       console.error('导入名单失败:', error)
-      addLog('error', '导入名单失败，请检查文件内容')
+      addLog('error', '导入名单失败...老师检查一下文件内容～')
     }
   }
 

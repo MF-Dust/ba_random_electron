@@ -1,3 +1,4 @@
+use rand::Rng;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use std::io::Cursor;
 use std::sync::mpsc;
@@ -38,6 +39,7 @@ fn run_audio_thread(rx: mpsc::Receiver<AudioCommand>, app: AppHandle) {
     let mut gacha_sink: Option<Sink> = None;
     let mut click_bytes: Option<Vec<u8>> = None;
     let mut bgm_bytes: Option<Vec<u8>> = None;
+    let mut ost338_bytes: Option<Vec<u8>> = None;
     let mut gacha_bytes: Option<Vec<u8>> = None;
 
     while let Ok(command) = rx.recv() {
@@ -50,7 +52,16 @@ fn run_audio_thread(rx: mpsc::Receiver<AudioCommand>, app: AppHandle) {
                 if let Some(sink) = bgm_sink.take() {
                     sink.stop();
                 }
-                let bytes = cached_asset_bytes(&app, &mut bgm_bytes, "sound/bgm.mp3");
+                let use_ost338 = rand::thread_rng().gen_bool(0.5);
+                let bytes = if use_ost338 {
+                    cached_asset_bytes(
+                        &app,
+                        &mut ost338_bytes,
+                        "sound/Yuudachi - Blue Archive OST 338.mp3",
+                    )
+                } else {
+                    cached_asset_bytes(&app, &mut bgm_bytes, "sound/bgm.mp3")
+                };
                 bgm_sink = play_audio_loop(&handle, bytes, 0.3);
             }
             AudioCommand::StopBgm => {

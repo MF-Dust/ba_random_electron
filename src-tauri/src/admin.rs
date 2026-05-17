@@ -35,7 +35,7 @@ pub(crate) fn acquire_single_instance_guard() -> Result<Option<SingleInstanceGua
 
     unsafe {
         let handle = CreateMutexW(None, true, PCWSTR(name.as_ptr()))
-            .map_err(|error| format!("创建单实例锁失败: {error}"))?;
+            .map_err(|error| format!("创建单实例锁失败啦: {error}"))?;
         if GetLastError() == ERROR_ALREADY_EXISTS {
             let _ = CloseHandle(handle);
             return Ok(None);
@@ -119,19 +119,19 @@ pub(crate) fn request_admin_relaunch() -> ApiResult {
     {
         Ok(status) if status.success() => ApiResult {
             ok: true,
-            message: "已请求管理员权限，即将重新启动。".to_string(),
+            message: "已经请求管理员权限啦！马上重启～".to_string(),
             detail: None,
             restart_required: None,
         },
         Ok(status) => ApiResult {
             ok: false,
-            message: "管理员权限请求失败或被取消。".to_string(),
+            message: "管理员权限请求失败或被取消了...".to_string(),
             detail: Some(format!("exit code: {:?}", status.code())),
             restart_required: None,
         },
         Err(error) => ApiResult {
             ok: false,
-            message: "管理员权限请求失败或被取消。".to_string(),
+            message: "管理员权限请求失败或被取消了...".to_string(),
             detail: Some(error.to_string()),
             restart_required: None,
         },
@@ -142,7 +142,7 @@ pub(crate) fn request_admin_relaunch() -> ApiResult {
 pub(crate) fn request_admin_relaunch() -> ApiResult {
     ApiResult {
         ok: false,
-        message: "当前系统不支持管理员提升。".to_string(),
+        message: "这个系统不支持管理员提升呢...".to_string(),
         detail: None,
         restart_required: None,
     }
@@ -153,7 +153,7 @@ pub(crate) fn create_admin_startup_task_impl(task_name: &str, exe_path: &str) ->
     if exe_path.trim().is_empty() || !Path::new(exe_path).exists() {
         return ApiResult {
             ok: false,
-            message: "可执行文件路径无效或不存在。".to_string(),
+            message: "可执行文件路径不对或者不存在哦～".to_string(),
             detail: None,
             restart_required: None,
         };
@@ -202,19 +202,19 @@ pub(crate) fn create_admin_startup_task_impl(task_name: &str, exe_path: &str) ->
     match result {
         Ok(status) if status.success() => ApiResult {
             ok: true,
-            message: "计划任务已创建或更新。".to_string(),
+            message: "开机任务已经创建/更新啦～".to_string(),
             detail: None,
             restart_required: None,
         },
         Ok(status) => ApiResult {
             ok: false,
-            message: "计划任务创建失败或被取消。".to_string(),
+            message: "开机任务创建失败或被取消了...".to_string(),
             detail: Some(format!("exit code: {:?}", status.code())),
             restart_required: None,
         },
         Err(error) => ApiResult {
             ok: false,
-            message: "计划任务创建失败或被取消。".to_string(),
+            message: "开机任务创建失败或被取消了...".to_string(),
             detail: Some(error.to_string()),
             restart_required: None,
         },
@@ -225,7 +225,7 @@ pub(crate) fn create_admin_startup_task_impl(task_name: &str, exe_path: &str) ->
 pub(crate) fn create_admin_startup_task_impl(_task_name: &str, _exe_path: &str) -> ApiResult {
     ApiResult {
         ok: false,
-        message: "仅支持 Windows 计划任务。".to_string(),
+        message: "只支持 Windows 的计划任务哦～".to_string(),
         detail: None,
         restart_required: None,
     }

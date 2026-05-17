@@ -38,23 +38,19 @@ pub(crate) async fn get_floating_button_config(
 }
 
 #[tauri::command]
-pub(crate) async fn floating_button_clicked(
-    app: AppHandle,
-) -> Result<(), String> {
+pub(crate) async fn floating_button_clicked(app: AppHandle) -> Result<(), String> {
     open_pick_count(app).await
 }
 
 #[tauri::command]
-pub(crate) async fn floating_button_drag_start(
-    window: WebviewWindow,
-) -> Result<(), String> {
+pub(crate) async fn floating_button_drag_start(window: WebviewWindow) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<AppState>();
         let position = window.outer_position().map_err(|error| error.to_string())?;
         state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .drag_session = Some(DragSession {
             start_x: position.x,
             start_y: position.y,
@@ -75,7 +71,10 @@ pub(crate) async fn floating_button_drag_move(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<AppState>();
-        let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+        let mut guard = state
+            .inner
+            .lock()
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
         let Some(session) = &mut guard.drag_session else {
             return Ok(());
         };
@@ -99,15 +98,13 @@ pub(crate) async fn floating_button_drag_move(
 }
 
 #[tauri::command]
-pub(crate) async fn floating_button_drag_end(
-    app: AppHandle,
-) -> Result<(), String> {
+pub(crate) async fn floating_button_drag_end(app: AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .drag_session = None;
         persist_floating_position(&app, &state);
         Ok(())
@@ -142,9 +139,7 @@ pub(crate) async fn prewarm_aux_windows(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) async fn get_pick_count_config(
-    app: AppHandle,
-) -> Result<PickCountDialogConfig, String> {
+pub(crate) async fn get_pick_count_config(app: AppHandle) -> Result<PickCountDialogConfig, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let config = refresh_config(&app, &state)?;
@@ -155,9 +150,7 @@ pub(crate) async fn get_pick_count_config(
 }
 
 #[tauri::command]
-pub(crate) async fn open_pick_count(
-    app: AppHandle,
-) -> Result<(), String> {
+pub(crate) async fn open_pick_count(app: AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let config = refresh_config(&app, &state)?;
@@ -168,7 +161,7 @@ pub(crate) async fn open_pick_count(
         state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .floating_hidden_for_pick_count = true;
         hide_floating_window(&app);
         Ok(())
@@ -178,9 +171,7 @@ pub(crate) async fn open_pick_count(
 }
 
 #[tauri::command]
-pub(crate) async fn cancel_pick_count(
-    app: AppHandle,
-) -> Result<(), String> {
+pub(crate) async fn cancel_pick_count(app: AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         hide_pick_count_window(&app);
@@ -188,7 +179,7 @@ pub(crate) async fn cancel_pick_count(
         state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .floating_hidden_for_pick_count = false;
         show_floating_window(&app);
         Ok(())
@@ -217,12 +208,18 @@ pub(crate) async fn confirm_pick_count(
             apply_floating_window_config(&window, &config);
         }
         let picked_students = {
-            let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+            let mut guard = state
+                .inner
+                .lock()
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
             if guard.config.allow_repeat_draw {
                 if guard.weighted_pool_cache.is_none() {
                     guard.weighted_pool_cache = Some(build_weighted_pool(&guard.config));
                 }
-                pick_students_with_repeat(guard.weighted_pool_cache.as_ref().unwrap(), selected_count)
+                pick_students_with_repeat(
+                    guard.weighted_pool_cache.as_ref().unwrap(),
+                    selected_count,
+                )
             } else {
                 pick_students_without_repeat(&guard.config, selected_count)
             }
@@ -233,13 +230,16 @@ pub(crate) async fn confirm_pick_count(
                 .map(|student| student.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            push_log(&app, &state, "info", &format!("Picked students: {names}"));
+            push_log(&app, &state, "info", &format!("点名结果: {names}"));
         }
 
         hide_pick_count_window(&app);
 
         {
-            let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+            let mut guard = state
+                .inner
+                .lock()
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
             guard.floating_hidden_for_pick_count = true;
             guard.current_pick_results = picked_students.clone();
             guard.pick_result_token = guard.pick_result_token.saturating_add(1);
@@ -282,10 +282,7 @@ pub(crate) async fn stop_bgm(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) async fn play_gacha_sound(
-    app: AppHandle,
-    volume: f64,
-) -> Result<(), String> {
+pub(crate) async fn play_gacha_sound(app: AppHandle, volume: f64) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         state.audio.send(AudioCommand::PlayGacha(volume as f32))
@@ -318,15 +315,13 @@ pub(crate) async fn get_pick_result_config(
 }
 
 #[tauri::command]
-pub(crate) async fn get_pick_results(
-    app: AppHandle,
-) -> Result<Vec<PickedStudent>, String> {
+pub(crate) async fn get_pick_results(app: AppHandle) -> Result<Vec<PickedStudent>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let results = state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .current_pick_results
             .clone();
         Ok(results)
@@ -336,13 +331,14 @@ pub(crate) async fn get_pick_results(
 }
 
 #[tauri::command]
-pub(crate) async fn close_pick_result(
-    app: AppHandle,
-) -> Result<(), String> {
+pub(crate) async fn close_pick_result(app: AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let token = {
-            let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+            let mut guard = state
+                .inner
+                .lock()
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
             guard.pick_result_token = guard.pick_result_token.saturating_add(1);
             guard.current_pick_results.clear();
             guard.floating_hidden_for_pick_count = false;
@@ -358,9 +354,7 @@ pub(crate) async fn close_pick_result(
 }
 
 #[tauri::command]
-pub(crate) async fn get_config(
-    app: AppHandle,
-) -> Result<AppConfig, String> {
+pub(crate) async fn get_config(app: AppHandle) -> Result<AppConfig, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let config = refresh_config(&app, &state)?;
@@ -397,7 +391,7 @@ pub(crate) async fn import_student_list_from_file(
             return Ok(None);
         };
         let raw_text =
-            fs::read_to_string(&path).map_err(|error| format!("读取名单文件失败: {error}"))?;
+            fs::read_to_string(&path).map_err(|error| format!("读取名单文件失败啦: {error}"))?;
         Ok(Some(parse_student_list_text_impl(
             &raw_text,
             &existing_students,
@@ -418,7 +412,10 @@ pub(crate) async fn save_app_config(
         save_config(&normalized)?;
         let config_signature = current_config_signature().ok().flatten();
         {
-            let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+            let mut guard = state
+                .inner
+                .lock()
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
             guard.apply_config(normalized.clone(), config_signature, true);
         }
         if let Some(window) = app.get_webview_window("floating") {
@@ -426,10 +423,10 @@ pub(crate) async fn save_app_config(
         } else {
             create_floating_window(&app, &normalized)?;
         }
-        push_log(&app, &state, "info", "配置保存成功，悬浮窗已自动刷新配置");
+        push_log(&app, &state, "info", "配置保存成功！悬浮窗已经刷新啦～");
         Ok(ApiResult {
             ok: true,
-            message: "配置保存成功，悬浮窗已自动刷新配置".to_string(),
+            message: "配置保存成功！悬浮窗已经刷新啦～".to_string(),
             detail: None,
             restart_required: Some(false),
         })
@@ -461,15 +458,13 @@ pub(crate) async fn check_update(app: AppHandle) -> Result<UpdateResult, String>
 }
 
 #[tauri::command]
-pub(crate) async fn request_admin_elevation(
-    app: AppHandle,
-) -> Result<ApiResult, String> {
+pub(crate) async fn request_admin_elevation(app: AppHandle) -> Result<ApiResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         if is_process_elevated() {
             return Ok(ApiResult {
                 ok: true,
-                message: "已在管理员权限下运行。".to_string(),
+                message: "已经以管理员权限运行啦～".to_string(),
                 detail: None,
                 restart_required: None,
             });
@@ -479,7 +474,7 @@ pub(crate) async fn request_admin_elevation(
             state
                 .inner
                 .lock()
-                .map_err(|_| "状态锁定失败".to_string())?
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
                 .is_quitting = true;
             let app_clone = app.clone();
             std::thread::spawn(move || {
@@ -513,7 +508,10 @@ pub(crate) async fn create_admin_startup_task(
             };
             save_config(&config)?;
             let config_signature = current_config_signature().ok().flatten();
-            let mut guard = state.inner.lock().map_err(|_| "状态锁定失败".to_string())?;
+            let mut guard = state
+                .inner
+                .lock()
+                .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?;
             guard.apply_config(config, config_signature, true);
         }
         Ok(result)
@@ -566,7 +564,7 @@ pub(crate) async fn get_logs(app: AppHandle) -> Result<Vec<LogEntry>, String> {
         let logs = state
             .inner
             .lock()
-            .map_err(|_| "状态锁定失败".to_string())?
+            .map_err(|_| "阿罗娜状态卡住了...请重试～".to_string())?
             .logs
             .iter()
             .cloned()

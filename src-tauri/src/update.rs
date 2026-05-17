@@ -79,7 +79,7 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
                 return UpdateResult {
                     ok: false,
                     status: "error".to_string(),
-                    title: "检查更新失败".to_string(),
+                    title: "检查更新失败啦...".to_string(),
                     detail: error,
                     commit_url: String::new(),
                     release_url: String::new(),
@@ -95,7 +95,7 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
             ok: false,
             status: "error".to_string(),
             title: "检查更新失败".to_string(),
-            detail: format!("Release 请求失败 ({release_status})"),
+            detail: format!("Release 请求失败 ({release_status})..."),
             commit_url: String::new(),
             release_url: String::new(),
             local_version: local_version.to_string(),
@@ -128,8 +128,8 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
         return UpdateResult {
             ok: false,
             status: "error".to_string(),
-            title: "未找到版本描述文件".to_string(),
-            detail: "发布中缺少 version.yml，请稍后再试。".to_string(),
+            title: "没找到版本描述文件呢...".to_string(),
+            detail: "发布里缺少 version.yml，老师稍后再试～".to_string(),
             commit_url: String::new(),
             release_url,
             local_version: local_version.to_string(),
@@ -145,8 +145,8 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
         return UpdateResult {
             ok: false,
             status: "error".to_string(),
-            title: "未找到版本描述文件".to_string(),
-            detail: "发布中缺少 version.yml 下载地址。".to_string(),
+            title: "没找到版本描述文件呢...".to_string(),
+            detail: "发布里缺少 version.yml 的下载地址呢...".to_string(),
             commit_url: String::new(),
             release_url,
             local_version: local_version.to_string(),
@@ -177,7 +177,7 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
             ok: false,
             status: "error".to_string(),
             title: "检查更新失败".to_string(),
-            detail: format!("version.yml 下载失败 ({version_status})"),
+            detail: format!("version.yml 下载失败 ({version_status})..."),
             commit_url: String::new(),
             release_url,
             local_version: local_version.to_string(),
@@ -226,9 +226,9 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
         std::cmp::Ordering::Less => UpdateResult {
             ok: true,
             status: "update".to_string(),
-            title: format!("发现新版本：{remote_version}"),
+            title: format!("发现新版本啦：{remote_version}！"),
             detail: if commit_message.is_empty() {
-                "有新版本可用。".to_string()
+                "有新版本可以用哦～".to_string()
             } else {
                 format!("更新内容：\n{commit_message}")
             },
@@ -241,9 +241,9 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
         std::cmp::Ordering::Equal => UpdateResult {
             ok: true,
             status: "ok".to_string(),
-            title: format!("已是最新版本：{local_version}"),
+            title: format!("已经是最新版啦：{local_version}～"),
             detail: if commit_message.is_empty() {
-                "无需更新。".to_string()
+                "不用更新啦～".to_string()
             } else {
                 format!("当前提交：\n{commit_message}")
             },
@@ -256,8 +256,8 @@ pub(crate) async fn check_update_from_main(local_version: &str) -> UpdateResult 
         std::cmp::Ordering::Greater => UpdateResult {
             ok: true,
             status: "easter".to_string(),
-            title: format!("这是为什么呢？{local_version}"),
-            detail: "为什么你的版本比最新发布的版本还要新呢？".to_string(),
+            title: format!("咦？{local_version}"),
+            detail: "老师的版本比最新发布的还要新呢！好厉害～".to_string(),
             commit_url,
             release_url,
             local_version: local_version.to_string(),

@@ -61,7 +61,7 @@ pub fn run() {
 
             let single_instance_guard = single_instance_guard
                 .take()
-                .ok_or_else(|| anyhow::Error::msg("单实例锁未初始化"))?;
+                .ok_or_else(|| anyhow::Error::msg("单实例锁还没初始化呢..."))?;
             app.manage(AppState {
                 inner: Mutex::new(RuntimeState::new(
                     initial_config.clone(),

@@ -8,7 +8,7 @@
           <line x1="16" y1="13" x2="8" y2="13"/>
           <line x1="16" y1="17" x2="8" y2="17"/>
         </svg>
-        <span>名单导入</span>
+        <span>名单导入～</span>
       </div>
       <p class="ba-card-desc">老师每行写一个名字就好啦～也可以直接导入 CSV 或 TXT 文件，我会自动帮老师整理好的 ♪</p>
       <div class="ba-import-actions">
@@ -18,9 +18,9 @@
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
           </template>
-          从文件导入名单
+          从文件导入～
         </n-button>
-        <n-tag type="info" round>已录入 {{ studentCount }} 人</n-tag>
+        <n-tag type="info" round>已经录入 {{ studentCount }} 人啦～</n-tag>
       </div>
       <n-input
         type="textarea"

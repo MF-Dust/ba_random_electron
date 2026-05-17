@@ -17,7 +17,7 @@
             </div>
             <div class="ba-brand-text">
               <h1>KVRandom</h1>
-              <p>设置面板</p>
+              <p>阿罗娜的设置面板～</p>
             </div>
           </div>
 
@@ -30,7 +30,7 @@
                 <polyline points="17 21 17 13 7 13 7 21"/>
                 <polyline points="7 3 7 8 15 8"/>
               </svg>
-              <span>保存设置</span>
+              <span>保存设置！</span>
             </button>
           </div>
         </aside>

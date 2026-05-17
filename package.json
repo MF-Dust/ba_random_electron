@@ -1,7 +1,7 @@
 {
   "name": "kvrandom",
   "version": "26.05.3",
-  "description": "KVRandom - 随机点名工具",
+  "description": "KVRandom - 阿罗娜的点名工具～",
   "author": "HydrogenRua",
   "scripts": {
     "dev": "tauri dev",

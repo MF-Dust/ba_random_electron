@@ -8,12 +8,12 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        <span>管理员置顶增强</span>
+        <span>管理员增强～</span>
       </div>
       <div class="ba-toggle-row">
         <n-switch v-model:value="config.webConfig.adminTopmostEnabled" />
         <div class="ba-toggle-content">
-          <span class="ba-toggle-label">启动时申请管理员权限</span>
+          <span class="ba-toggle-label">启动时申请管理员权限～</span>
           <span class="ba-toggle-hint">开启后会弹出 UAC 提示，这样悬浮按钮的置顶效果会更强哦～</span>
         </div>
       </div>
@@ -23,7 +23,7 @@
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </template>
-        以管理员身份重启程序
+        用管理员身份重启～
       </n-button>
     </div>
 
@@ -34,7 +34,7 @@
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
-        <span>开机自动启动</span>
+        <span>开机自动启动～</span>
       </div>
       <div class="ba-form-item">
         <label class="ba-label">程序路径（exe）</label>
@@ -55,7 +55,7 @@
             <polyline points="12 6 12 12 16 14"/>
           </svg>
         </template>
-        创建 / 更新开机任务
+        创建 / 更新开机任务！
       </n-button>
     </div>
 
@@ -66,7 +66,7 @@
           <polyline points="23 4 23 10 17 10"/>
           <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
         </svg>
-        <span>检查更新</span>
+        <span>检查更新～</span>
       </div>
       <div class="ba-update-row">
         <n-button
@@ -74,7 +74,7 @@
           :loading="updateState.loading"
           @click="$emit('check-update')"
         >
-          {{ updateState.loading ? '正在检查中...' : '检查最新版本' }}
+          {{ updateState.loading ? '正在检查中...' : '检查最新版本～' }}
         </n-button>
         <span v-if="updateState.title" class="ba-update-status" :class="`ba-status-${updateState.status}`">
           {{ updateState.title }}
@@ -85,10 +85,10 @@
       </div>
       <div v-if="updateState.commitUrl || updateState.releaseUrl" class="ba-update-links">
         <n-button v-if="updateState.commitUrl" text tag="a" :href="updateState.commitUrl" target="_blank" type="primary" size="small">
-          去看看这次提交
+          看看这次更新～
         </n-button>
         <n-button v-if="updateState.releaseUrl" text tag="a" :href="updateState.releaseUrl" target="_blank" type="primary" size="small">
-          去发布页面看看
+          去发布页面看看～
         </n-button>
       </div>
     </div>
@@ -101,7 +101,7 @@
           <line x1="12" y1="16" x2="12" y2="12"/>
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
-        <span>商标与版权</span>
+        <span>商标 & 版权</span>
       </div>
       <div class="ba-copyright-text">
         <p>"蔚蓝档案"是上海星啸网络科技有限公司的注册商标，版权所有。</p>

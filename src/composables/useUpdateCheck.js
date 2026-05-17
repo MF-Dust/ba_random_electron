@@ -6,14 +6,14 @@ export function useUpdateCheck(appApi, addLog) {
   const updateState = ref({
     loading: false,
     status: 'idle',
-    title: '尚未检查更新',
+    title: '还没检查过更新呢～',
     detail: '',
     commitUrl: '',
     releaseUrl: ''
   })
 
   const checkUpdate = async () => {
-    addLog('info', '开始检查更新...')
+    addLog('info', '开始检查更新！')
     updateState.value = {
       loading: true,
       status: 'loading',
@@ -32,17 +32,17 @@ export function useUpdateCheck(appApi, addLog) {
       updateState.value = {
         loading: false,
         status: result.status || 'error',
-        title: result.title || '检查更新失败',
-        detail: result.detail || '请检查网络或稍后再试。',
+        title: result.title || '检查更新失败啦...',
+        detail: result.detail || '老师检查一下网络，或者等会儿再试～',
         commitUrl: result.commitUrl || '',
         releaseUrl: result.releaseUrl || releasePageUrl
       }
       if (result.status === 'update') {
-        addLog('success', '发现新版本')
+        addLog('success', '发现新版本啦！')
       } else if (result.status === 'ok') {
-        addLog('success', '已是最新版本')
+        addLog('success', '已经是最新版啦～')
       } else if (result.status === 'easter') {
-        addLog('info', '本地版本高于远端版本')
+        addLog('info', '本地版本比远程还新呢！')
       } else {
         addLog('error', result.detail || '检查更新失败')
       }
@@ -53,8 +53,8 @@ export function useUpdateCheck(appApi, addLog) {
       updateState.value = {
         loading: false,
         status: 'error',
-        title: '检查更新失败',
-        detail: '请检查网络或稍后再试。',
+        title: '检查更新失败啦...',
+        detail: '老师检查一下网络，或者等会儿再试～',
         commitUrl: '',
         releaseUrl: releasePageUrl
       }

@@ -23,11 +23,11 @@ export function useAppConfig(appApi, addLog) {
         rawListText.value = studentListToText(config.value.studentList || [])
       }
       applyDefaultAutoStartPath()
-      addLog('info', '配置已加载')
+      addLog('info', '配置加载完成～')
     } catch (error) {
       console.error('加载配置失败:', error)
-      addLog('error', '加载配置失败，请检查应用后端是否启动')
-      window.alert('配置页面初始化失败。')
+      addLog('error', '加载配置失败...老师检查一下后端有没有启动～')
+      window.alert('配置页面初始化失败啦...')
     }
   }
 
@@ -51,23 +51,23 @@ export function useAppConfig(appApi, addLog) {
     try {
       await syncTextToList({ updateText: true })
       await appApi.saveConfig(config.value)
-      addLog('success', '配置已保存并生效')
-      window.alert('配置已保存并生效。')
+      addLog('success', '配置保存成功！已经生效啦～')
+      window.alert('配置保存成功！已经生效啦～')
     } catch (error) {
       console.error('保存配置失败:', error)
-      addLog('error', '保存失败，请检查输入内容')
-      window.alert('保存失败，请检查输入内容。')
+      addLog('error', '保存失败...老师检查一下输入内容～')
+      window.alert('保存失败...老师检查一下输入内容～')
     }
   }
 
   const requestAdminElevation = async () => {
     try {
       const response = await appApi.requestAdminElevation()
-      addLog(response.ok ? 'info' : 'error', response.message || '已发送管理员权限请求')
-      window.alert(response.message || '已发送管理员权限请求。')
+      addLog(response.ok ? 'info' : 'error', response.message || '已发送管理员权限请求！')
+      window.alert(response.message || '已发送管理员权限请求！')
     } catch (error) {
       console.error('申请管理员权限失败:', error)
-      const message = error?.message || '申请管理员权限失败'
+      const message = error?.message || '申请管理员权限失败啦...'
       addLog('error', message)
       window.alert(`${message}，请查看日志。`)
     }
@@ -81,16 +81,16 @@ export function useAppConfig(appApi, addLog) {
         taskName: String(config.value.webConfig.adminAutoStartTaskName || DEFAULT_ADMIN_TASK_NAME).trim()
       }
       if (!payload.exePath) {
-        window.alert('请先填写可执行文件路径。')
+        window.alert('老师先填一下可执行文件的路径哦～')
         return
       }
       const response = await appApi.createAdminStartupTask(payload.exePath, payload.taskName)
-      addLog(response.ok ? 'success' : 'error', response.message || '计划任务已创建或更新')
-      window.alert(response.message || '计划任务已创建或更新。')
+      addLog(response.ok ? 'success' : 'error', response.message || '开机任务已经创建/更新啦～')
+      window.alert(response.message || '开机任务已经创建/更新啦～')
     } catch (error) {
       console.error('创建计划任务失败:', error)
-      addLog('error', '创建计划任务失败')
-      window.alert('创建计划任务失败，请查看日志。')
+      addLog('error', '创建开机任务失败啦...')
+      window.alert('创建开机任务失败...老师看看日志吧～')
     }
   }
 

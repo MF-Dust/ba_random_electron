@@ -22,28 +22,28 @@ const {
 <template>
   <div class="pick-overlay" :class="{ 'is-leaving': isLeaving }" :style="overlayStyle">
     <div class="pick-panel">
-      <h1 class="pick-title">选择人数</h1>
+      <h1 class="pick-title">要点名几个人呢～</h1>
 
       <div class="pick-counter-row">
-        <button class="pick-circle-btn" :disabled="isLeaving || !canDecrease" @click="decreaseCount" aria-label="减少人数">-</button>
+        <button class="pick-circle-btn" :disabled="isLeaving || !canDecrease" @click="decreaseCount" aria-label="减少～">-</button>
         <div class="pick-count-box">{{ count }}</div>
-        <button class="pick-circle-btn" :disabled="isLeaving || !canIncrease" @click="increaseCount" aria-label="增加人数">+</button>
+        <button class="pick-circle-btn" :disabled="isLeaving || !canIncrease" @click="increaseCount" aria-label="增加！">+</button>
       </div>
 
       <div class="pick-range-row">
-        <button class="pick-range-btn" :disabled="isLeaving || !canDecrease" @click="setMinCount">最小</button>
-        <span class="pick-range-hint">可选范围 {{ MIN_COUNT }}-{{ MAX_COUNT }}</span>
-        <button class="pick-range-btn" :disabled="isLeaving || !canIncrease" @click="setMaxCount">最大</button>
+        <button class="pick-range-btn" :disabled="isLeaving || !canDecrease" @click="setMinCount">最少</button>
+        <span class="pick-range-hint">可选范围 {{ MIN_COUNT }} - {{ MAX_COUNT }}，老师看着办～</span>
+        <button class="pick-range-btn" :disabled="isLeaving || !canIncrease" @click="setMaxCount">最多</button>
       </div>
 
       <div class="pick-actions">
-        <button class="pick-action-btn pick-action-cancel" :disabled="isLeaving" @click="handleCancel">取消</button>
-        <button class="pick-action-btn pick-action-confirm" :disabled="isLeaving" @click="handleConfirm">确定</button>
+        <button class="pick-action-btn pick-action-cancel" :disabled="isLeaving" @click="handleCancel">先不要了</button>
+        <button class="pick-action-btn pick-action-confirm" :disabled="isLeaving" @click="handleConfirm">开始点名！</button>
       </div>
 
       <label class="pick-music-row">
         <input class="pick-checkbox" type="checkbox" v-model="playMusic" :disabled="isLeaving" />
-        <span>播放(*喜庆的)点名背景音乐</span>
+        <span>播放超～喜庆的点名BGM！</span>
       </label>
     </div>
   </div>
