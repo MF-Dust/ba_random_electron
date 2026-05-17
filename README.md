@@ -69,7 +69,7 @@ KVRandom 是一款基于 Tauri 2、Rust 和 Vue 3 的 Windows 桌面随机点名
 
 ## 配置说明
 
-应用会在 Tauri 的用户配置目录下读写 `config.yml` 和 `list.yaml`，根目录的 `config.yml`/`list.yaml` 只作为示例。首次升级到新版时，程序会尝试从旧的运行目录或旧 app data 目录迁移配置；如果字段缺失或超出范围，程序会在加载时归一化并写回。YAML 语法错误会直接报错，不会再静默覆盖成默认配置。
+应用会在程序所在目录下读写 `config.yml` 和 `list.yaml`。首次升级到新版时，程序会尝试从旧的 Tauri 用户配置目录、旧 app data 目录或旧运行目录迁移配置；如果字段缺失或超出范围，程序会在加载时归一化并写回。YAML 语法错误会直接报错，不会再静默覆盖成默认配置。
 
 主要配置项：
 
@@ -136,8 +136,8 @@ npm run build
 │  ├─ Cargo.toml
 │  └─ tauri.conf.json
 ├─ .github/workflows/ # Windows 构建和发布工作流
-├─ config.yml         # 示例配置，运行时会复制/迁移到用户配置目录
-├─ list.yaml          # 示例名单，运行时会复制/迁移到用户配置目录
+├─ config.yml         # 示例/程序所在目录配置
+├─ list.yaml          # 示例/程序所在目录名单
 └─ package.json
 ```
 

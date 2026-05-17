@@ -150,11 +150,13 @@ pub(crate) struct ConfigFileSignature {
     pub(crate) list: Option<FileSignature>,
 }
 
-fn app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_config_dir()
-        .or_else(|_| app.path().app_data_dir())
-        .map_err(|error| format!("获取配置目录失败啦: {error}"))
+fn program_dir() -> Result<PathBuf, String> {
+    let exe_path =
+        std::env::current_exe().map_err(|error| format!("获取程序路径失败啦: {error}"))?;
+    exe_path
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "获取程序所在目录失败啦".to_string())
 }
 
 fn legacy_run_dir() -> Option<PathBuf> {
@@ -172,11 +174,13 @@ fn legacy_run_dir() -> Option<PathBuf> {
 }
 
 fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("config.yml"))
+    let _ = app;
+    Ok(program_dir()?.join("config.yml"))
 }
 
 pub(crate) fn list_path(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app_config_dir(app)?.join("list.yaml"))
+    let _ = app;
+    Ok(program_dir()?.join("list.yaml"))
 }
 
 fn to_list_yaml_with_comments(students: &[Student]) -> String {
@@ -269,6 +273,9 @@ pub(crate) fn save_student_list(app: &AppHandle, students: &[Student]) -> Result
 
 fn legacy_paths(app: &AppHandle, file_name: &str, target: &Path) -> Vec<PathBuf> {
     let mut paths = Vec::new();
+    if let Ok(app_config_dir) = app.path().app_config_dir() {
+        paths.push(app_config_dir.join(file_name));
+    }
     if let Ok(app_data_dir) = app.path().app_data_dir() {
         paths.push(app_data_dir.join(file_name));
     }
