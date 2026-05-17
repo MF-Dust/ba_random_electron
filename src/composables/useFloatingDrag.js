@@ -13,6 +13,17 @@ export function useFloatingDrag(emit) {
   const pendingDx = ref(0)
   const pendingDy = ref(0)
   const rafId = ref(0)
+  let dragCommandQueue = Promise.resolve()
+
+  const enqueueDragCommand = (task) => {
+    dragCommandQueue = dragCommandQueue
+      .catch(() => {})
+      .then(task)
+      .catch((error) => {
+        console.warn('Floating drag command failed:', error)
+      })
+    return dragCommandQueue
+  }
 
   const playClickSound = () => {
     audioApi.playClickSound().catch(() => {})
@@ -39,7 +50,9 @@ export function useFloatingDrag(emit) {
       rafId.value = 0
       return
     }
-    floatingButtonApi.moveDrag(pendingDx.value, pendingDy.value)
+    const dx = pendingDx.value
+    const dy = pendingDy.value
+    enqueueDragCommand(() => floatingButtonApi.moveDrag(dx, dy))
     rafId.value = 0
   }
 
@@ -65,6 +78,7 @@ export function useFloatingDrag(emit) {
     startGlobalY.value = point.y
     pendingDx.value = 0
     pendingDy.value = 0
+    dragCommandQueue = Promise.resolve()
     cancelScheduledMove()
     if (event.currentTarget && event.currentTarget.setPointerCapture) {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -82,7 +96,7 @@ export function useFloatingDrag(emit) {
 
     if (!isDragging.value && movedEnough) {
       isDragging.value = true
-      floatingButtonApi.startDrag()
+      enqueueDragCommand(() => floatingButtonApi.startDrag())
     }
 
     if (isDragging.value) {
@@ -92,14 +106,19 @@ export function useFloatingDrag(emit) {
     }
   }
 
-  const handlePointerUp = (event) => {
+  const handlePointerUp = async (event) => {
     if (activePointerId.value !== event.pointerId) return
     if (!pointerDown.value) return
 
+    let finishDrag = null
     if (isDragging.value) {
       cancelScheduledMove()
-      floatingButtonApi.moveDrag(pendingDx.value, pendingDy.value)
-      floatingButtonApi.endDrag()
+      const finalDx = pendingDx.value
+      const finalDy = pendingDy.value
+      finishDrag = enqueueDragCommand(async () => {
+        await floatingButtonApi.moveDrag(finalDx, finalDy)
+        await floatingButtonApi.endDrag()
+      })
     } else {
       playClickSound()
       emit('click')
@@ -111,13 +130,16 @@ export function useFloatingDrag(emit) {
     if (event.currentTarget && event.currentTarget.releasePointerCapture) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
+    if (finishDrag) {
+      await finishDrag
+    }
   }
 
   const handlePointerCancel = (event) => {
     if (activePointerId.value !== null && activePointerId.value !== event.pointerId) return
     if (isDragging.value) {
       cancelScheduledMove()
-      floatingButtonApi.endDrag()
+      enqueueDragCommand(() => floatingButtonApi.endDrag())
     }
     pointerDown.value = false
     activePointerId.value = null

@@ -84,7 +84,7 @@ pub(crate) fn refresh_config(
     app: &AppHandle,
     state: &tauri::State<'_, AppState>,
 ) -> Result<AppConfig, String> {
-    let current_signature = current_config_signature()?;
+    let current_signature = current_config_signature(app)?;
     if let Ok(guard) = state.inner.lock() {
         if current_signature.is_some() && guard.config_signature == current_signature {
             return Ok(guard.config.clone());

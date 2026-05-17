@@ -411,9 +411,9 @@ pub(crate) async fn save_app_config(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let normalized = normalize_config_value(config);
-        save_student_list(&normalized.student_list)?;
-        save_config(&normalized)?;
-        let config_signature = current_config_signature().ok().flatten();
+        save_student_list(&app, &normalized.student_list)?;
+        save_config(&app, &normalized)?;
+        let config_signature = current_config_signature(&app).ok().flatten();
         {
             let mut guard = state
                 .inner
@@ -509,8 +509,8 @@ pub(crate) async fn create_admin_startup_task(
             } else {
                 task_name.trim().to_string()
             };
-            save_config(&config)?;
-            let config_signature = current_config_signature().ok().flatten();
+            save_config(&app, &config)?;
+            let config_signature = current_config_signature(&app).ok().flatten();
             let mut guard = state
                 .inner
                 .lock()
@@ -567,7 +567,7 @@ pub(crate) async fn save_student_list_file(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
-        crate::config::save_student_list(&students)?;
+        crate::config::save_student_list(&app, &students)?;
         let mut guard = state
             .inner
             .lock()

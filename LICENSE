@@ -1,0 +1,11 @@
+SPDX-License-Identifier: AGPL-3.0-only
+
+The source code in this repository is licensed under the GNU Affero General
+Public License version 3 only.
+
+The bundled image and audio assets under public/ are not covered by this
+license unless a file in that asset directory states otherwise. Those assets
+remain subject to their original rights holders' terms.
+
+Full license text:
+https://www.gnu.org/licenses/agpl-3.0.txt

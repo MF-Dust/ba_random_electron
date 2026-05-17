@@ -34,7 +34,7 @@ pub fn run() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
             let (initial_config, initial_config_signature) =
-                load_config_with_signature(&app_handle).unwrap_or_default();
+                load_config_with_signature(&app_handle).map_err(anyhow::Error::msg)?;
             let mut single_instance_guard = Some(single_instance_guard);
 
             if initial_config.web_config.admin_topmost_enabled

@@ -212,9 +212,9 @@ pub(crate) fn persist_floating_position(app: &AppHandle, state: &tauri::State<'_
     });
     config.floating_button.position.x = Some(position.x);
     config.floating_button.position.y = Some(position.y);
-    let _ = save_config(&config);
+    let _ = save_config(app, &config);
     if let Ok(mut guard) = state.inner.lock() {
-        guard.apply_config(config, current_config_signature().ok().flatten(), false);
+        guard.apply_config(config, current_config_signature(app).ok().flatten(), false);
     }
 }
 

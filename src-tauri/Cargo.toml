@@ -3,6 +3,7 @@ name = "kvrandom"
 version = "26.5.3"
 description = "KVRandom"
 authors = ["HydrogenRua"]
+license = "AGPL-3.0-only"
 edition = "2021"
 
 [lib]

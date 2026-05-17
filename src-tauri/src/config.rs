@@ -24,17 +24,11 @@ pub(crate) struct Student {
     pub(crate) club: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FloatingPosition {
     pub(crate) x: Option<i32>,
     pub(crate) y: Option<i32>,
-}
-
-impl Default for FloatingPosition {
-    fn default() -> Self {
-        Self { x: None, y: None }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,38 +139,51 @@ pub(crate) struct StudentListParseResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ConfigFileSignature {
+pub(crate) struct FileSignature {
     pub(crate) modified: Option<SystemTime>,
     pub(crate) len: u64,
 }
 
-fn base_dir() -> Result<PathBuf, String> {
-    let current_dir =
-        std::env::current_dir().map_err(|error| format!("获取当前目录失败啦: {error}"))?;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConfigFileSignature {
+    pub(crate) config: Option<FileSignature>,
+    pub(crate) list: Option<FileSignature>,
+}
+
+fn app_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|error| format!("获取配置目录失败啦: {error}"))
+}
+
+fn legacy_run_dir() -> Option<PathBuf> {
+    let current_dir = std::env::current_dir().ok()?;
     if current_dir
         .file_name()
         .and_then(|name| name.to_str())
         .is_some_and(|name| name == "src-tauri")
     {
         if let Some(project_dir) = current_dir.parent() {
-            return Ok(project_dir.to_path_buf());
+            return Some(project_dir.to_path_buf());
         }
     }
-    Ok(current_dir)
+    Some(current_dir)
 }
 
-fn config_path() -> Result<PathBuf, String> {
-    Ok(base_dir()?.join("config.yml"))
+fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("config.yml"))
 }
 
-pub(crate) fn list_path() -> Result<PathBuf, String> {
-    Ok(base_dir()?.join("list.yaml"))
+pub(crate) fn list_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_config_dir(app)?.join("list.yaml"))
 }
 
 fn to_list_yaml_with_comments(students: &[Student]) -> String {
     let mut lines = vec![
         "# 学生名单～".to_string(),
-        "# 支持的字段: name(姓名), weight(权重), avatar(立绘路径), academy(学院), club(社团)".to_string(),
+        "# 支持的字段: name(姓名), weight(权重), avatar(立绘路径), academy(学院), club(社团)"
+            .to_string(),
         String::new(),
     ];
     if students.is_empty() {
@@ -184,7 +191,10 @@ fn to_list_yaml_with_comments(students: &[Student]) -> String {
     } else {
         lines.push("students:".to_string());
         for student in students {
-            lines.push(format!("  - name: \"{}\"", escape_yaml_string(&student.name)));
+            lines.push(format!(
+                "  - name: \"{}\"",
+                escape_yaml_string(&student.name)
+            ));
             lines.push(format!("    weight: {}", student.weight));
             if let Some(avatar) = &student.avatar {
                 lines.push(format!("    avatar: \"{}\"", escape_yaml_string(avatar)));
@@ -201,29 +211,37 @@ fn to_list_yaml_with_comments(students: &[Student]) -> String {
     lines.join("\n")
 }
 
-pub(crate) fn load_student_list() -> Result<Vec<Student>, String> {
-    let path = list_path()?;
+pub(crate) fn load_student_list(app: &AppHandle) -> Result<Vec<Student>, String> {
+    let path = list_path(app)?;
     if !path.exists() {
         return Ok(Vec::new());
     }
     let raw = fs::read_to_string(&path).map_err(|e| format!("读取名单失败啦: {e}"))?;
-    let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
+    let parsed: Value = serde_yaml::from_str(&raw).map_err(|e| format!("解析名单失败啦: {e}"))?;
     let mut students = Vec::new();
     if let Some(Value::Array(items)) = get_field(&parsed, "students") {
         for item in items {
             if let Value::Object(_) = item {
-                let name = value_as_string(get_field(item, "name"), "").trim().to_string();
+                let name = value_as_string(get_field(item, "name"), "")
+                    .trim()
+                    .to_string();
                 if !name.is_empty() {
                     let avatar = match get_field(item, "avatar") {
-                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        Some(Value::String(s)) if !s.trim().is_empty() => {
+                            Some(s.trim().to_string())
+                        }
                         _ => None,
                     };
                     let academy = match get_field(item, "academy") {
-                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        Some(Value::String(s)) if !s.trim().is_empty() => {
+                            Some(s.trim().to_string())
+                        }
                         _ => None,
                     };
                     let club = match get_field(item, "club") {
-                        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+                        Some(Value::String(s)) if !s.trim().is_empty() => {
+                            Some(s.trim().to_string())
+                        }
                         _ => None,
                     };
                     students.push(Student {
@@ -240,8 +258,8 @@ pub(crate) fn load_student_list() -> Result<Vec<Student>, String> {
     Ok(students)
 }
 
-pub(crate) fn save_student_list(students: &[Student]) -> Result<(), String> {
-    let path = list_path()?;
+pub(crate) fn save_student_list(app: &AppHandle, students: &[Student]) -> Result<(), String> {
+    let path = list_path(app)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建目录失败啦: {e}"))?;
     }
@@ -249,45 +267,83 @@ pub(crate) fn save_student_list(students: &[Student]) -> Result<(), String> {
         .map_err(|e| format!("写入名单失败啦: {e}"))
 }
 
-pub(crate) fn migrate_student_list_if_needed(_app: &AppHandle) -> Result<(), String> {
-    let list_file = list_path()?;
+fn legacy_paths(app: &AppHandle, file_name: &str, target: &Path) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(app_data_dir) = app.path().app_data_dir() {
+        paths.push(app_data_dir.join(file_name));
+    }
+    if let Some(run_dir) = legacy_run_dir() {
+        paths.push(run_dir.join(file_name));
+    }
+    paths
+        .into_iter()
+        .filter(|path| path != target && path.exists())
+        .collect()
+}
+
+fn copy_legacy_file_if_missing(
+    app: &AppHandle,
+    target: &Path,
+    file_name: &str,
+) -> Result<bool, String> {
+    if target.exists() {
+        return Ok(false);
+    }
+    let Some(legacy_path) = legacy_paths(app, file_name, target).into_iter().next() else {
+        return Ok(false);
+    };
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| format!("创建配置目录失败啦: {error}"))?;
+    }
+    fs::copy(&legacy_path, target).map_err(|error| format!("迁移旧文件失败啦: {error}"))?;
+    Ok(true)
+}
+
+pub(crate) fn migrate_student_list_if_needed(app: &AppHandle) -> Result<(), String> {
+    let list_file = list_path(app)?;
     if list_file.exists() {
         return Ok(());
     }
-    let cfg_path = config_path()?;
+    if copy_legacy_file_if_missing(app, &list_file, "list.yaml")? {
+        return Ok(());
+    }
+    let cfg_path = config_path(app)?;
     if !cfg_path.exists() {
         return Ok(());
     }
     let raw = fs::read_to_string(&cfg_path).map_err(|e| format!("读取配置失败啦: {e}"))?;
-    let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
+    let parsed: Value = serde_yaml::from_str(&raw).map_err(|e| format!("解析配置失败啦: {e}"))?;
     let config = normalize_config_value(parsed);
     if config.student_list.is_empty() {
         return Ok(());
     }
-    save_student_list(&config.student_list)?;
+    save_student_list(app, &config.student_list)?;
     let mut cleared = config;
     cleared.student_list = Vec::new();
-    save_config(&cleared)?;
+    save_config(app, &cleared)?;
     Ok(())
 }
 
-fn legacy_config_path(app: &AppHandle) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|dir| dir.join("config.yml"))
-}
-
-fn file_signature(path: &Path) -> Option<ConfigFileSignature> {
+fn file_signature(path: &Path) -> Option<FileSignature> {
     let metadata = fs::metadata(path).ok()?;
-    Some(ConfigFileSignature {
+    Some(FileSignature {
         modified: metadata.modified().ok(),
         len: metadata.len(),
     })
 }
 
-pub(crate) fn current_config_signature() -> Result<Option<ConfigFileSignature>, String> {
-    Ok(file_signature(&config_path()?))
+pub(crate) fn current_config_signature(
+    app: &AppHandle,
+) -> Result<Option<ConfigFileSignature>, String> {
+    let signature = ConfigFileSignature {
+        config: file_signature(&config_path(app)?),
+        list: file_signature(&list_path(app)?),
+    };
+    if signature.config.is_none() && signature.list.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(signature))
+    }
 }
 
 fn escape_yaml_string(value: &str) -> String {
@@ -309,27 +365,9 @@ fn to_config_yaml_with_comments(config: &AppConfig) -> String {
         .y
         .map(|value| value.to_string())
         .unwrap_or_else(|| "null".to_string());
-    let student_lines = if config.student_list.is_empty() {
-        " []".to_string()
-    } else {
-        let lines = config
-            .student_list
-            .iter()
-            .map(|student| {
-                format!(
-                    "  - name: \"{}\"\n    weight: {}",
-                    escape_yaml_string(&student.name),
-                    student.weight
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        format!("\n{lines}")
-    };
-
     [
-        "# 学生名单列表～".to_string(),
-        format!("studentList:{student_lines}"),
+        "# 学生名单已拆分到 list.yaml；这里保留空字段用于兼容旧版本～".to_string(),
+        "studentList: []".to_string(),
         format!("allowRepeatDraw: {}", config.allow_repeat_draw),
         String::new(),
         "# 悬浮按钮配置～".to_string(),
@@ -630,7 +668,7 @@ pub(crate) fn parse_student_list_text_impl(
     let mut student_list = Vec::new();
 
     for name in raw_text
-        .split(|char| char == '\n' || char == '\r' || char == ',')
+        .split(['\n', '\r', ','])
         .map(str::trim)
         .filter(|name| !name.is_empty())
     {
@@ -770,8 +808,8 @@ mod tests {
     }
 }
 
-pub(crate) fn save_config(config: &AppConfig) -> Result<(), String> {
-    let path = config_path()?;
+pub(crate) fn save_config(app: &AppHandle, config: &AppConfig) -> Result<(), String> {
+    let path = config_path(app)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| format!("创建配置目录失败啦: {error}"))?;
     }
@@ -784,29 +822,24 @@ fn write_default_config_if_missing(app: &AppHandle, path: &Path) -> Result<(), S
         return Ok(());
     }
 
-    if let Some(legacy_path) = legacy_config_path(app) {
-        if legacy_path != path && legacy_path.exists() {
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|error| format!("创建配置目录失败啦: {error}"))?;
-            }
-            fs::copy(legacy_path, path).map_err(|error| format!("迁移旧配置失败啦: {error}"))?;
-            return Ok(());
-        }
+    if copy_legacy_file_if_missing(app, path, "config.yml")? {
+        return Ok(());
     }
 
-    save_config(&AppConfig::default())
+    save_config(app, &AppConfig::default())
 }
 
 pub(crate) fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
-    let path = config_path()?;
+    let path = config_path(app)?;
     write_default_config_if_missing(app, &path)?;
     migrate_student_list_if_needed(app)?;
     let raw = fs::read_to_string(&path).map_err(|error| format!("读取配置失败啦: {error}"))?;
-    let parsed: Value = serde_yaml::from_str(&raw).unwrap_or(Value::Null);
+    let parsed: Value =
+        serde_yaml::from_str(&raw).map_err(|error| format!("解析配置失败啦: {error}"))?;
     let mut normalized = normalize_config_value(parsed);
-    let list_students = load_student_list()?;
-    if !list_students.is_empty() {
+    let list_file_exists = list_path(app)?.exists();
+    let list_students = load_student_list(app)?;
+    if list_file_exists {
         normalized.student_list = list_students;
     }
     let normalized_raw = to_config_yaml_with_comments(&normalized);
@@ -820,5 +853,5 @@ pub(crate) fn load_config_with_signature(
     app: &AppHandle,
 ) -> Result<(AppConfig, Option<ConfigFileSignature>), String> {
     let config = load_config(app)?;
-    Ok((config, current_config_signature()?))
+    Ok((config, current_config_signature(app)?))
 }

@@ -1,8 +1,9 @@
 {
   "name": "kvrandom",
-  "version": "26.05.3",
+  "version": "26.5.3",
   "description": "KVRandom - 阿罗娜的点名工具～",
   "author": "HydrogenRua",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",

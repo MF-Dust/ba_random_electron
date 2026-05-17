@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { audioApi } from '../api/audioApi'
 import { pickCountApi } from '../api/pickCountApi'
 import {
@@ -103,6 +104,17 @@ export function usePickCountDialog() {
     await audioApi.playBgm()
   }
 
+  const isCurrentWindowVisible = async () => {
+    if (!window.__TAURI_INTERNALS__) {
+      return false
+    }
+    try {
+      return await getCurrentWindow().isVisible()
+    } catch (_error) {
+      return false
+    }
+  }
+
   const resetDialogStateFromConfig = async (shouldPlayBgm, configOverride) => {
     isLeaving.value = false
     stopAudio()
@@ -164,9 +176,10 @@ export function usePickCountDialog() {
   onMounted(async () => {
     isLeaving.value = false
     stopAudio()
-    await initConfig()
+    let openedByEvent = false
 
     removeOnOpenListener = pickCountApi.onOpen(async (payload) => {
+      openedByEvent = true
       isDialogOpen.value = true
       await resetDialogStateFromConfig(true, payload?.config)
     })
@@ -174,6 +187,12 @@ export function usePickCountDialog() {
     removeStopListener = pickCountApi.onStopBgm(() => {
       stopAudio()
     })
+
+    await initConfig()
+    if (!openedByEvent && await isCurrentWindowVisible()) {
+      isDialogOpen.value = true
+      await resetDialogStateFromConfig(true)
+    }
   })
 
   onBeforeUnmount(() => {
